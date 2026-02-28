@@ -17,7 +17,7 @@ Since this isn't on the Chrome Web Store, you load it as an unpacked extension:
 1. Open Chrome and go to `chrome://extensions/`
 2. Enable **Developer mode** (toggle in the top-right corner)
 3. Click **Load unpacked**
-4. Select the `proxmox-paste-extension` folder
+4. Select the **`extension`** folder (in this repo)
 5. The extension is now active
 
 For Edge: go to `edge://extensions/` and follow the same steps.
@@ -44,3 +44,15 @@ For Edge: go to `edge://extensions/` and follow the same steps.
 **Characters getting dropped:** The VM might be processing input slower than the 30ms delay. If this happens, paste smaller chunks at a time.
 
 **Button not appearing:** Make sure you're on the noVNC console page (the URL typically contains `/novnc` or `/vncviewer`). Refresh the page after installing the extension.
+
+## Project structure
+
+```
+extension/       # Load unpacked from here; this is what gets zipped for the store
+  manifest.json, content.js, popup.html, popup.js, icons/
+scripts/         # Build scripts
+  build-icons.py      # SVG → PNG (run after changing assets/icon.svg)
+  build-store-zip.py  # Creates pve-paste-helper.zip for Chrome Web Store
+assets/          # Source assets (e.g. icon.svg)
+docs/            # Additional documentation
+```

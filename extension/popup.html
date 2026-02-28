@@ -78,6 +78,14 @@
         color: #666;
         margin-top: 6px;
       }
+      .popup-footer {
+        display: block;
+        margin-top: 12px;
+        padding-top: 10px;
+        border-top: 1px solid #2a2a2a;
+        font-size: 11px;
+        color: #666;
+      }
     </style>
   </head>
   <body>
@@ -93,7 +101,11 @@
       <p class="hint" id="export-hint">Download all saved snippets as a JSON file.</p>
     </div>
 
-    <small>Snippets you save stay on this device only.</small>
+    <small>Snippets you save stay on this device only. No data is sent to any server.</small>
+
+    <footer class="popup-footer">
+      <span id="version-label"></span>
+    </footer>
 
     <script src="popup.js"></script>
   </body>
