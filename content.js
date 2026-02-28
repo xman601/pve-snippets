@@ -6,6 +6,16 @@
 
   const SNIPPETS_KEY = 'pmx_snippets_v1';
 
+  // ── Theme: 6 colors only. Change these to restyle the whole UI. ──
+  const THEME = {
+    bg: '#141414',           // darkest: header, rows, footer, inputs
+    bgPanel: '#1a1a1a',      // panels, cards, hover
+    border: '#2a2a2a',       // all borders
+    text: '#fff',            // primary text, button labels
+    textMuted: '#8a8a8a',    // hints, previews, inactive, placeholders
+    accent: '#f60',          // buttons, active tab, titles, focus
+  };
+
   // Only activate on pages that look like a PVE noVNC console
   function isProxmoxConsole() {
     const path = window.location.pathname;
@@ -129,8 +139,8 @@
       toast.id = 'pmx-paste-toast';
       Object.assign(toast.style, {
         position: 'fixed', bottom: '80px', right: '20px',
-        background: '#1a1a1a', color: '#eee',
-        border: '1px solid #2a2a2a', borderRadius: '4px',
+        background: THEME.bgPanel, color: THEME.text,
+        border: '1px solid ' + THEME.border, borderRadius: '4px',
         padding: '5px 10px', fontSize: '11px',
         fontFamily: 'ui-monospace,SFMono-Regular,Menlo,Monaco,Consolas,"Liberation Mono","Courier New",monospace',
         zIndex: '9999999', pointerEvents: 'none',
@@ -202,17 +212,13 @@
     await storageSet(SNIPPETS_KEY, snippets.filter((s) => s.id !== id));
   }
 
-  async function moveSnippet(id, direction) {
+  async function reorderSnippets(fromIndex, toIndex) {
+    if (fromIndex === toIndex) return;
     const snippets = await getSnippets();
-    const i = snippets.findIndex((s) => s.id === id);
-    if (i < 0) return;
-    if (direction === 'up' && i > 0) {
-      [snippets[i - 1], snippets[i]] = [snippets[i], snippets[i - 1]];
-      await storageSet(SNIPPETS_KEY, snippets);
-    } else if (direction === 'down' && i < snippets.length - 1) {
-      [snippets[i], snippets[i + 1]] = [snippets[i + 1], snippets[i]];
-      await storageSet(SNIPPETS_KEY, snippets);
-    } else return;
+    if (fromIndex < 0 || fromIndex >= snippets.length || toIndex < 0 || toIndex >= snippets.length) return;
+    const [item] = snippets.splice(fromIndex, 1);
+    snippets.splice(toIndex, 0, item);
+    await storageSet(SNIPPETS_KEY, snippets);
   }
 
   // ─────────────────────────────────────────────────────────────────
@@ -225,11 +231,12 @@
     const CLIP_SM = `<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"/><rect x="8" y="2" width="8" height="4" rx="1.5"/></svg>`;
     const LIST_SM = `<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/><line x1="8" y1="18" x2="21" y2="18"/><line x1="3" y1="6" x2="3.01" y2="6"/><line x1="3" y1="12" x2="3.01" y2="12"/><line x1="3" y1="18" x2="3.01" y2="18"/></svg>`;
     const CHEV_DOWN = `<svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>`;
+    const GRIP = `<svg width="10" height="14" viewBox="0 0 24 24" fill="currentColor"><circle cx="9" cy="6" r="1.5"/><circle cx="15" cy="6" r="1.5"/><circle cx="9" cy="12" r="1.5"/><circle cx="15" cy="12" r="1.5"/><circle cx="9" cy="18" r="1.5"/><circle cx="15" cy="18" r="1.5"/></svg>`;
     const CHEV_UP   = `<svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="18 15 12 9 6 15"/></svg>`;
     const CHEV_R    = `<svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"/></svg>`;
     const PENCIL    = `<svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>`;
 
-    // ── CSS ──
+    // ── CSS (all colors from THEME at top of file) ──
     const CSS = `
       #pmx-wrap {
         position: fixed; bottom: 16px; right: 16px; z-index: 999999;
@@ -245,30 +252,30 @@
       /* ── Collapsed pill ── */
       #pmx-btns {
         display: flex; align-items: center;
-        background: #1a1a1a; border: 1px solid #2a2a2a; border-radius: 16px;
+        background: ${THEME.bgPanel}; border: 1px solid ${THEME.border}; border-radius: 16px;
         overflow: hidden; cursor: pointer;
         box-shadow: 0 8px 24px rgba(0,0,0,0.6), 0 0 0 1px rgba(255,255,255,0.04);
         transition: border-color 0.15s;
       }
-      #pmx-btns:hover { border-color: #f60; }
-      #pmx-btns:hover .pmx-pill-icon { background: #f60; }
+      #pmx-btns:hover { border-color: ${THEME.accent}; }
+      #pmx-btns:hover .pmx-pill-icon { background: ${THEME.accent}; }
       .pmx-pill-icon {
         width: 36px; height: 36px; display: flex; align-items: center; justify-content: center;
-        background: #222; transition: background 0.15s; cursor: pointer;
+        background: ${THEME.border}; transition: background 0.15s; cursor: pointer;
       }
-      .pmx-pill-icon svg { color: #c46900; transition: color 0.15s; }
-      #pmx-btns:hover .pmx-pill-icon svg { color: #fff; }
+      .pmx-pill-icon svg { color: ${THEME.accent}; transition: color 0.15s; }
+      #pmx-btns:hover .pmx-pill-icon svg { color: ${THEME.text}; }
       .pmx-pill-chev {
         width: 28px; height: 36px; display: flex; align-items: center; justify-content: center;
-        border-left: 1px solid #2a2a2a; cursor: pointer;
+        border-left: 1px solid ${THEME.border}; cursor: pointer;
       }
-      .pmx-pill-chev svg { color: #555; transition: color 0.15s; }
-      #pmx-btns:hover .pmx-pill-chev svg { color: #f60; }
+      .pmx-pill-chev svg { color: ${THEME.textMuted}; transition: color 0.15s; }
+      #pmx-btns:hover .pmx-pill-chev svg { color: ${THEME.accent}; }
 
       /* ── Panel ── */
       #pmx-panel {
         display: none; flex-direction: column; width: 380px;
-        background: #1a1a1a; border: 1px solid #2a2a2a; border-radius: 6px;
+        background: ${THEME.bgPanel}; border: 1px solid ${THEME.border}; border-radius: 6px;
         overflow: visible; position: relative;
         box-shadow: 0 20px 48px rgba(0,0,0,0.7);
       }
@@ -276,8 +283,8 @@
 
       /* ── Tab header ── */
       #pmx-header {
-        display: flex; align-items: stretch; background: #141414;
-        border-bottom: 1px solid #2a2a2a; border-radius: 6px 6px 0 0; overflow: hidden;
+        display: flex; align-items: stretch; background: ${THEME.bg};
+        border-bottom: 1px solid ${THEME.border}; border-radius: 6px 6px 0 0; overflow: hidden;
       }
       .pmx-tabs { display: flex; align-items: stretch; flex: 1; }
       .pmx-tab {
@@ -285,20 +292,20 @@
         padding: 13px 10px 11px; background: transparent; border: none;
         border-bottom: 2px solid transparent; margin-bottom: -1px;
         font-family: inherit; font-size: 11px; font-weight: 500;
-        letter-spacing: 0.12em; text-transform: uppercase; color: #444;
+        letter-spacing: 0.12em; text-transform: uppercase; color: ${THEME.textMuted};
         cursor: pointer; transition: color 0.15s, border-color 0.15s;
         -webkit-appearance: none; appearance: none;
       }
-      .pmx-tab + .pmx-tab { border-left: 1px solid #2a2a2a; }
-      .pmx-tab:hover { color: #888; }
-      .pmx-tab.active { color: #fff; border-bottom-color: #f60; }
+      .pmx-tab + .pmx-tab { border-left: 1px solid ${THEME.border}; }
+      .pmx-tab:hover { color: ${THEME.textMuted}; }
+      .pmx-tab.active { color: ${THEME.text}; border-bottom-color: ${THEME.accent}; }
       .pmx-tab svg { color: inherit; }
       .pmx-hdr-close {
         width: 44px; flex-shrink: 0; display: flex; align-items: center; justify-content: center;
-        border-left: 1px solid #2a2a2a; color: #333; cursor: pointer;
+        border-left: 1px solid ${THEME.border}; color: ${THEME.textMuted}; cursor: pointer;
         transition: color 0.15s, background 0.15s;
       }
-      .pmx-hdr-close:hover { background: #1a1a1a; color: #888; }
+      .pmx-hdr-close:hover { background: ${THEME.bgPanel}; color: ${THEME.textMuted}; }
 
       /* ── Views ── */
       .pmx-view { display: none; flex-direction: column; }
@@ -307,40 +314,40 @@
       /* ── Paste view ── */
       #pmx-textarea {
         width: 100%; background: transparent; border: none; outline: none;
-        resize: none; font-family: inherit; font-size: 12px; color: #bbb;
-        padding: 11px 12px; height: 120px; display: block; caret-color: #f60;
+        resize: none; font-family: inherit; font-size: 12px; color: ${THEME.textMuted};
+        padding: 11px 12px; height: 120px; display: block; caret-color: ${THEME.accent};
       }
-      #pmx-textarea::placeholder { color: #333; }
+      #pmx-textarea::placeholder { color: ${THEME.textMuted}; }
 
       #pmx-footer {
-        padding: 8px 10px; border-top: 1px solid #2a2a2a;
+        padding: 8px 10px; border-top: 1px solid ${THEME.border};
         display: flex; justify-content: space-between; align-items: center; gap: 6px;
       }
       .pmx-kbd {
-        font-size: 9px; font-weight: 500; color: #555; background: #111;
-        border: 1px solid #2a2a2a; border-radius: 4px; padding: 2px 5px;
+        font-size: 9px; font-weight: 500; color: ${THEME.textMuted}; background: ${THEME.bg};
+        border: 1px solid ${THEME.border}; border-radius: 4px; padding: 2px 5px;
         letter-spacing: 0.05em; white-space: nowrap; flex-shrink: 0;
       }
       .pmx-footer-btns { display: flex; align-items: center; gap: 6px; flex-shrink: 0; }
 
       #pmx-save-snip-btn {
-        background: transparent; border: 1px solid #2a2a2a; border-radius: 4px;
-        color: #555; font-family: inherit; font-size: 9px; font-weight: 500;
+        background: transparent; border: 1px solid ${THEME.border}; border-radius: 4px;
+        color: ${THEME.textMuted}; font-family: inherit; font-size: 9px; font-weight: 500;
         letter-spacing: 0.08em; padding: 5px 10px; cursor: pointer; white-space: nowrap;
         transition: border-color 0.12s, color 0.12s;
         -webkit-appearance: none; appearance: none;
       }
       #pmx-save-snip-btn:hover,
-      #pmx-save-snip-btn.active { border-color: #f60; color: #f60; }
+      #pmx-save-snip-btn.active { border-color: ${THEME.accent}; color: ${THEME.accent}; }
 
       #pmx-send {
-        background: #f60; color: #fff; border: none; border-radius: 4px;
+        background: ${THEME.accent}; color: ${THEME.text}; border: none; border-radius: 4px;
         font-family: inherit; font-size: 9px; font-weight: 500; letter-spacing: 0.08em;
         padding: 5px 12px; cursor: pointer; white-space: nowrap;
         display: flex; align-items: center; gap: 5px;
         transition: background 0.12s; -webkit-appearance: none; appearance: none;
       }
-      #pmx-send:hover { background: #e55a00; }
+      #pmx-send:hover { background: ${THEME.accent}; }
 
       /* Save bar (slides in below footer) */
       #pmx-save-bar {
@@ -348,26 +355,26 @@
       }
       #pmx-save-bar.open { display: flex; }
       #pmx-save-bar-input {
-        flex: 1; min-width: 0; background: #111; border: 1px solid #2a2a2a;
-        border-radius: 4px; font-family: inherit; font-size: 10px; color: #bbb;
+        flex: 1; min-width: 0; background: ${THEME.bg}; border: 1px solid ${THEME.border};
+        border-radius: 4px; font-family: inherit; font-size: 10px; color: ${THEME.textMuted};
         padding: 5px 8px; outline: none; transition: border-color 0.12s;
       }
-      #pmx-save-bar-input:focus { border-color: #f60; }
-      #pmx-save-bar-input::placeholder { color: #333; }
+      #pmx-save-bar-input:focus { border-color: ${THEME.accent}; }
+      #pmx-save-bar-input::placeholder { color: ${THEME.textMuted}; }
       #pmx-save-bar-confirm {
-        background: #f60; border: none; border-radius: 4px; color: #fff;
+        background: ${THEME.accent}; border: none; border-radius: 4px; color: ${THEME.text};
         font-family: inherit; font-size: 9px; font-weight: 500; padding: 5px 10px;
         cursor: pointer; white-space: nowrap; transition: background 0.12s;
         -webkit-appearance: none; appearance: none;
       }
-      #pmx-save-bar-confirm:hover { background: #e55a00; }
+      #pmx-save-bar-confirm:hover { background: ${THEME.accent}; }
       #pmx-save-bar-cancel {
-        background: transparent; border: 1px solid #2a2a2a; border-radius: 4px;
-        color: #444; font-family: inherit; font-size: 9px; padding: 5px 8px;
+        background: transparent; border: 1px solid ${THEME.border}; border-radius: 4px;
+        color: ${THEME.textMuted}; font-family: inherit; font-size: 9px; padding: 5px 8px;
         cursor: pointer; transition: border-color 0.12s, color 0.12s;
         -webkit-appearance: none; appearance: none;
       }
-      #pmx-save-bar-cancel:hover { border-color: #444; color: #888; }
+      #pmx-save-bar-cancel:hover { border-color: ${THEME.textMuted}; color: ${THEME.textMuted}; }
 
       /* ── Snippets view ── */
       .pmx-snip-scroll {
@@ -376,33 +383,40 @@
       }
       .pmx-snip-scroll::-webkit-scrollbar { width: 4px; }
       .pmx-snip-scroll::-webkit-scrollbar-track { background: transparent; }
-      .pmx-snip-scroll::-webkit-scrollbar-thumb { background: #2a2a2a; border-radius: 2px; }
+      .pmx-snip-scroll::-webkit-scrollbar-thumb { background: ${THEME.border}; border-radius: 2px; }
 
       .pmx-snip-row {
         display: flex; align-items: center; gap: 8px; padding: 8px 10px;
-        border-radius: 4px; border: 1px solid #222; background: #141414;
+        border-radius: 4px; border: 1px solid ${THEME.border}; background: ${THEME.bg};
         position: relative; transition: border-color 0.12s, background 0.12s;
       }
-      .pmx-snip-row:hover { border-color: #2a2a2a; background: #1a1a1a; }
-      .pmx-snip-row.editing { border-color: #f60; background: #1a1a1a; }
+      .pmx-snip-row:hover { border-color: ${THEME.border}; background: ${THEME.bgPanel}; }
+      .pmx-snip-row.editing { border-color: ${THEME.accent}; background: ${THEME.bgPanel}; }
+      .pmx-snip-row.dragging { opacity: 0.5; }
+      .pmx-snip-row.drag-over { border-color: ${THEME.accent}; background: ${THEME.bgPanel}; }
+      .pmx-snip-row .pmx-snip-drag-handle { cursor: grab; color: ${THEME.textMuted}; flex-shrink: 0; }
+      .pmx-snip-row .pmx-snip-drag-handle:active { cursor: grabbing; }
 
       .pmx-snip-info { flex: 1; min-width: 0; }
       .pmx-snip-name {
-        font-size: 10px; color: #f60; letter-spacing: 0.08em;
+        font-size: 10px; color: ${THEME.accent}; letter-spacing: 0.08em;
         text-transform: uppercase; margin-bottom: 3px;
         white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
       }
       .pmx-snip-preview {
-        font-size: 10px; color: #555; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+        font-size: 10px; color: ${THEME.textMuted}; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
       }
 
       .pmx-snip-actions {
         flex-shrink: 0; width: max-content; min-width: 0;
         display: flex; align-items: center; gap: 4px;
+      }
+      .pmx-snip-actions-extra {
+        display: flex; align-items: center; gap: 4px;
         opacity: 0; transition: opacity 0.12s;
       }
-      .pmx-snip-row:hover .pmx-snip-actions,
-      .pmx-snip-row.editing .pmx-snip-actions { opacity: 1; }
+      .pmx-snip-row:hover .pmx-snip-actions-extra,
+      .pmx-snip-row.editing .pmx-snip-actions-extra { opacity: 1; }
 
       /* Scoped so host page button styles don't override; same height for all */
       #pmx-wrap .pmx-snip-send,
@@ -415,58 +429,56 @@
         -webkit-appearance: none; appearance: none;
       }
       #pmx-wrap .pmx-snip-send {
-        background: #f60; border: none; border-radius: 4px; color: #fff;
+        background: ${THEME.accent}; border: none; border-radius: 4px; color: ${THEME.text};
         font-family: inherit; font-size: 9px; padding: 0 9px;
         cursor: pointer; white-space: nowrap; transition: background 0.12s;
       }
-      #pmx-wrap .pmx-snip-send:hover { background: #e55a00; }
+      #pmx-wrap .pmx-snip-send:hover { background: ${THEME.accent}; }
 
       #pmx-wrap .pmx-snip-edit {
-        background: transparent; border: 1px solid #2e2e2e; border-radius: 3px;
-        color: #555; cursor: pointer; padding: 0;
+        background: transparent; border: 1px solid ${THEME.border}; border-radius: 3px;
+        color: ${THEME.textMuted}; cursor: pointer; padding: 0;
         width: 24px !important; min-width: 24px !important; max-width: 24px !important;
         transition: border-color 0.12s, color 0.12s;
       }
       #pmx-wrap .pmx-snip-edit svg { width: 9px; height: 9px; }
       #pmx-wrap .pmx-snip-edit:hover,
-      #pmx-wrap .pmx-snip-edit.active { border-color: #f60; color: #f60; }
+      #pmx-wrap .pmx-snip-edit.active { border-color: ${THEME.accent}; color: ${THEME.accent}; }
 
       #pmx-wrap .pmx-snip-del {
-        background: transparent; border: none; color: #2e2e2e;
-        cursor: pointer; font-size: 10px; padding: 0; line-height: 1;
-        width: 24px !important; min-width: 24px !important; max-width: 24px !important;
+        background: transparent; border: none; color: ${THEME.textMuted};
+        cursor: pointer; font-size: 14px; padding: 0; line-height: 1;
+        width: 28px !important; min-width: 28px !important; max-width: 28px !important;
+        height: 28px !important; min-height: 28px !important;
         transition: color 0.12s;
       }
-      #pmx-wrap .pmx-snip-del:hover { color: #ff3344; }
-
-      #pmx-wrap .pmx-snip-move {
-        background: transparent; border: 1px solid #2e2e2e; border-radius: 3px;
-        color: #555; cursor: pointer; padding: 0;
-        width: 24px; min-width: 24px; max-width: 24px;
-        height: 24px; min-height: 24px; box-sizing: border-box;
-        display: inline-flex; align-items: center; justify-content: center;
-        flex: 0 0 auto !important; transition: border-color 0.12s, color 0.12s;
-        -webkit-appearance: none; appearance: none;
-      }
-      #pmx-wrap .pmx-snip-move:hover:not(:disabled) { border-color: #f60; color: #f60; }
-      #pmx-wrap .pmx-snip-move:disabled { opacity: 0.35; cursor: not-allowed; }
-      #pmx-wrap .pmx-snip-move svg { width: 10px; height: 10px; }
+      #pmx-wrap .pmx-snip-del:hover { color: ${THEME.accent}; }
 
       .pmx-snip-empty {
-        padding: 24px 12px; text-align: center; font-size: 10px; color: #333; line-height: 1.7;
+        padding: 24px 12px; text-align: center; font-size: 10px; color: ${THEME.textMuted}; line-height: 1.7;
       }
 
       .pmx-snip-footer {
-        padding: 9px 12px; border-top: 1px solid #222;
-        background: #141414; border-radius: 0 0 6px 6px;
+        padding: 9px 12px; border-top: 1px solid ${THEME.border};
+        background: ${THEME.bg}; border-radius: 0 0 6px 6px;
+        display: flex; align-items: center; justify-content: space-between; gap: 10px;
+        flex-wrap: nowrap;
       }
-      .pmx-snip-hint { font-size: 9px; color: #2e2e2e; letter-spacing: 0.08em; }
-      .pmx-snip-hint span { color: #444; }
+      .pmx-snip-footer-inner { min-width: 0; overflow: hidden; }
+      .pmx-snip-hint { font-size: 9px; color: ${THEME.textMuted}; letter-spacing: 0.08em; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+      .pmx-snip-hint span { color: ${THEME.textMuted}; }
+      #pmx-wrap .pmx-snip-new-btn {
+        flex-shrink: 0; margin-left: auto; background: ${THEME.accent}; border: none; border-radius: 4px; color: ${THEME.text};
+        font-size: 11px; font-weight: 600; padding: 7px 12px; cursor: pointer; white-space: nowrap;
+        transition: background 0.12s, box-shadow 0.12s; -webkit-appearance: none; appearance: none;
+        box-shadow: 0 1px 3px rgba(0,0,0,0.4);
+      }
+      #pmx-wrap .pmx-snip-new-btn:hover { background: ${THEME.accent}; box-shadow: 0 2px 6px rgba(245,102,0,0.35); }
 
-      /* ── Edit popover (absolute, relative to #pmx-panel), aligned to snippet row ── */
+      /* ── Edit popover (absolute, relative to #pmx-panel), fixed position ── */
       #pmx-edit-pop {
-        display: none; position: absolute; right: calc(100% + 10px);
-        width: 240px; background: #1a1a1a; border: 1px solid #f60;
+        display: none; position: absolute; right: calc(100% + 10px); top: 52px;
+        width: 240px; background: ${THEME.bgPanel}; border: 1px solid ${THEME.accent};
         border-radius: 6px; overflow: hidden; z-index: 20;
         box-shadow: 0 12px 32px rgba(0,0,0,0.8), 0 0 0 1px rgba(255,102,0,0.1);
       }
@@ -478,55 +490,55 @@
       }
 
       .pmx-pop-hdr {
-        padding: 8px 11px; border-bottom: 1px solid #222; background: #141414;
+        padding: 8px 11px; border-bottom: 1px solid ${THEME.border}; background: ${THEME.bg};
         display: flex; align-items: center; justify-content: space-between;
       }
-      .pmx-pop-title { font-size: 9px; letter-spacing: 0.15em; text-transform: uppercase; color: #f60; }
+      .pmx-pop-title { font-size: 9px; letter-spacing: 0.15em; text-transform: uppercase; color: ${THEME.accent}; }
       #pmx-wrap .pmx-pop-x {
-        background: transparent; border: none; color: #333; cursor: pointer;
+        background: transparent; border: none; color: ${THEME.textMuted}; cursor: pointer;
         font-size: 13px; line-height: 1; padding: 0 2px; transition: color 0.12s;
         flex: 0 0 auto !important; width: max-content !important; max-width: max-content !important;
         min-width: 0; box-sizing: border-box;
         -webkit-appearance: none; appearance: none;
       }
-      #pmx-wrap .pmx-pop-x:hover { color: #888; }
+      #pmx-wrap .pmx-pop-x:hover { color: ${THEME.textMuted}; }
 
       .pmx-pop-body { padding: 10px; display: flex; flex-direction: column; gap: 7px; }
       .pmx-field-lbl {
-        font-size: 8px; letter-spacing: 0.15em; text-transform: uppercase; color: #444; margin-bottom: 4px;
+        font-size: 8px; letter-spacing: 0.15em; text-transform: uppercase; color: ${THEME.textMuted}; margin-bottom: 4px;
       }
       .pmx-field-in {
-        width: 100%; background: #111; border: 1px solid #2a2a2a; border-radius: 4px;
-        font-family: inherit; font-size: 11px; color: #ccc; padding: 6px 9px;
+        width: 100%; background: ${THEME.bg}; border: 1px solid ${THEME.border}; border-radius: 4px;
+        font-family: inherit; font-size: 11px; color: ${THEME.textMuted}; padding: 6px 9px;
         outline: none; transition: border-color 0.12s;
       }
-      .pmx-field-in:focus { border-color: #f60; }
+      .pmx-field-in:focus { border-color: ${THEME.accent}; }
       .pmx-field-ta {
-        width: 100%; background: #111; border: 1px solid #2a2a2a; border-radius: 4px;
-        font-family: inherit; font-size: 11px; color: #ccc; padding: 7px 9px;
+        width: 100%; background: ${THEME.bg}; border: 1px solid ${THEME.border}; border-radius: 4px;
+        font-family: inherit; font-size: 11px; color: ${THEME.textMuted}; padding: 7px 9px;
         outline: none; resize: none; height: 72px; line-height: 1.5;
         transition: border-color 0.12s;
       }
-      .pmx-field-ta:focus { border-color: #f60; }
+      .pmx-field-ta:focus { border-color: ${THEME.accent}; }
 
       .pmx-pop-ftr {
-        padding: 8px 10px; border-top: 1px solid #222; background: #141414;
+        padding: 8px 10px; border-top: 1px solid ${THEME.border}; background: ${THEME.bg};
         display: flex; justify-content: flex-end; gap: 6px;
       }
       .pmx-pop-cancel {
-        background: transparent; border: 1px solid #2a2a2a; border-radius: 4px;
-        color: #444; font-family: inherit; font-size: 9px; padding: 5px 10px;
+        background: transparent; border: 1px solid ${THEME.border}; border-radius: 4px;
+        color: ${THEME.textMuted}; font-family: inherit; font-size: 9px; padding: 5px 10px;
         cursor: pointer; transition: border-color 0.12s, color 0.12s;
         -webkit-appearance: none; appearance: none;
       }
-      .pmx-pop-cancel:hover { border-color: #444; color: #888; }
+      .pmx-pop-cancel:hover { border-color: ${THEME.textMuted}; color: ${THEME.textMuted}; }
       .pmx-pop-save {
-        background: #f60; border: none; border-radius: 4px; color: #fff;
+        background: ${THEME.accent}; border: none; border-radius: 4px; color: ${THEME.text};
         font-family: inherit; font-size: 9px; font-weight: 500; padding: 5px 12px;
         cursor: pointer; transition: background 0.12s;
         -webkit-appearance: none; appearance: none;
       }
-      .pmx-pop-save:hover { background: #e55a00; }
+      .pmx-pop-save:hover { background: ${THEME.accent}; }
     `;
 
     const style = document.createElement('style');
@@ -592,7 +604,7 @@
     const saveSnipBtn = document.createElement('button');
     saveSnipBtn.type = 'button';
     saveSnipBtn.id = 'pmx-save-snip-btn';
-    saveSnipBtn.textContent = '+ Save snippet';
+    saveSnipBtn.textContent = 'Save as Snippet';
 
     const sendBtn = document.createElement('button');
     sendBtn.type = 'button';
@@ -681,7 +693,15 @@
 
     const snipsFooter = document.createElement('div');
     snipsFooter.className = 'pmx-snip-footer';
-    snipsFooter.innerHTML = '<span class="pmx-snip-hint">Hover to move, <span>Send</span>, edit, or delete</span>';
+    const snipsFooterInner = document.createElement('div');
+    snipsFooterInner.className = 'pmx-snip-footer-inner';
+    snipsFooterInner.innerHTML = '<span class="pmx-snip-hint">Drag to reorder snippets</span>';
+    const newSnipBtn = document.createElement('button');
+    newSnipBtn.type = 'button';
+    newSnipBtn.className = 'pmx-snip-new-btn';
+    newSnipBtn.textContent = '+ New snippet';
+    snipsFooter.appendChild(snipsFooterInner);
+    snipsFooter.appendChild(newSnipBtn);
 
     snipsView.appendChild(snipsScroll);
     snipsView.appendChild(snipsFooter);
@@ -694,7 +714,7 @@
     popHdr.className = 'pmx-pop-hdr';
     const popTitle = document.createElement('span');
     popTitle.className = 'pmx-pop-title';
-    popTitle.textContent = 'Edit Snippet';
+    popTitle.id = 'pmx-edit-pop-title';
     const popX = document.createElement('button');
     popX.type = 'button';
     popX.className = 'pmx-pop-x';
@@ -761,18 +781,27 @@
       pencilEl.classList.add('active');
       nameIn.value    = snippet.name || '';
       contentTa.value = snippet.text || '';
+      popTitle.textContent = 'Edit Snippet';
 
-      // Align popover top with the snippet row, clamped within panel
-      const panelRect = panel.getBoundingClientRect();
-      const rowRect   = rowEl.getBoundingClientRect();
-      const top = Math.max(0, Math.min(
-        rowRect.top - panelRect.top - 2,
-        panelRect.height - 220
-      ));
-      editPop.style.top = top + 'px';
       editPop.classList.add('open');
       setTimeout(() => nameIn.focus(), 40);
     }
+
+    function openPopoverForNew() {
+      if (editingRow) {
+        editingRow.classList.remove('editing');
+        if (editingPencil) editingPencil.classList.remove('active');
+      }
+      editingId = editingRow = editingPencil = null;
+      nameIn.value = '';
+      contentTa.value = '';
+      popTitle.textContent = 'New Snippet';
+
+      editPop.classList.add('open');
+      setTimeout(() => nameIn.focus(), 40);
+    }
+
+    newSnipBtn.addEventListener('click', openPopoverForNew);
 
     function closePopover() {
       editPop.classList.remove('open');
@@ -784,15 +813,19 @@
     popX.addEventListener('click', closePopover);
     popCancel.addEventListener('click', closePopover);
     popSave.addEventListener('click', async () => {
-      if (!editingId) return;
       const name = nameIn.value.trim();
       const text = contentTa.value;
       if (!name) { showToast('\u26a0 Name required'); return; }
       if (!text.trim()) { showToast('\u26a0 Content required'); return; }
-      await saveSnippet({ id: editingId, name, text });
+      if (editingId) {
+        await saveSnippet({ id: editingId, name, text });
+        showToast('\u2713 Snippet updated');
+      } else {
+        await saveSnippet({ name, text });
+        showToast('\u2713 Snippet added');
+      }
       closePopover();
       await renderSnippets();
-      showToast('\u2713 Snippet updated');
     });
     nameIn.addEventListener('keydown', (e) => {
       if (e.key === 'Enter') { e.preventDefault(); contentTa.focus(); }
@@ -802,12 +835,12 @@
       if (e.key === 'Escape') closePopover();
     });
 
-    // Close popover on outside click
+    // Close popover on outside click (ignore click on the button that opened it)
     document.addEventListener('click', (e) => {
       if (!editPop.classList.contains('open')) return;
-      if (!editPop.contains(e.target) && (!editingRow || !editingRow.contains(e.target))) {
-        closePopover();
-      }
+      const target = e.target;
+      const clickedOpener = editingRow ? editingRow.contains(target) : newSnipBtn.contains(target);
+      if (!editPop.contains(target) && !clickedOpener) closePopover();
     });
 
     // ── Render snippets list ──
@@ -818,7 +851,7 @@
       if (snippets.length === 0) {
         const empty = document.createElement('div');
         empty.className = 'pmx-snip-empty';
-        empty.textContent = 'No snippets yet. Type in the Paste tab and click \u201c+ Save snippet\u201d.';
+        empty.textContent = 'No snippets yet. Click \u201c+ New snippet\u201d below or use the Paste tab to save from clipboard.';
         snipsScroll.appendChild(empty);
         return;
       }
@@ -827,6 +860,43 @@
         const s = snippets[i];
         const row = document.createElement('div');
         row.className = 'pmx-snip-row';
+        row.dataset.snippetIndex = String(i);
+        row.dataset.snippetId = s.id;
+
+        const dragHandle = document.createElement('div');
+        dragHandle.className = 'pmx-snip-drag-handle';
+        dragHandle.innerHTML = GRIP;
+        dragHandle.title = 'Drag to reorder';
+        dragHandle.draggable = true;
+        dragHandle.addEventListener('dragstart', (e) => {
+          e.dataTransfer.setData('text/plain', String(i));
+          e.dataTransfer.effectAllowed = 'move';
+          row.classList.add('dragging');
+        });
+        dragHandle.addEventListener('dragend', () => {
+          snipsScroll.querySelectorAll('.pmx-snip-row').forEach((r) => {
+            r.classList.remove('dragging');
+            r.classList.remove('drag-over');
+          });
+        });
+
+        row.addEventListener('dragover', (e) => {
+          e.preventDefault();
+          e.dataTransfer.dropEffect = 'move';
+          if (!row.classList.contains('dragging')) row.classList.add('drag-over');
+        });
+        row.addEventListener('dragleave', (e) => {
+          if (!row.contains(e.relatedTarget)) row.classList.remove('drag-over');
+        });
+        row.addEventListener('drop', async (e) => {
+          e.preventDefault();
+          row.classList.remove('drag-over');
+          const fromIndex = parseInt(e.dataTransfer.getData('text/plain'), 10);
+          const toIndex = parseInt(row.dataset.snippetIndex, 10);
+          if (fromIndex === toIndex) return;
+          await reorderSnippets(fromIndex, toIndex);
+          await renderSnippets();
+        });
 
         const info = document.createElement('div');
         info.className = 'pmx-snip-info';
@@ -842,30 +912,6 @@
 
         const actions = document.createElement('div');
         actions.className = 'pmx-snip-actions';
-
-        const upEl = document.createElement('button');
-        upEl.type = 'button';
-        upEl.className = 'pmx-snip-move';
-        upEl.title = 'Move up';
-        upEl.innerHTML = CHEV_UP;
-        upEl.disabled = i === 0;
-        upEl.addEventListener('click', async (e) => {
-          e.stopPropagation();
-          await moveSnippet(s.id, 'up');
-          await renderSnippets();
-        });
-
-        const downEl = document.createElement('button');
-        downEl.type = 'button';
-        downEl.className = 'pmx-snip-move';
-        downEl.title = 'Move down';
-        downEl.innerHTML = CHEV_DOWN;
-        downEl.disabled = i === snippets.length - 1;
-        downEl.addEventListener('click', async (e) => {
-          e.stopPropagation();
-          await moveSnippet(s.id, 'down');
-          await renderSnippets();
-        });
 
         const sendEl = document.createElement('button');
         sendEl.type = 'button';
@@ -905,11 +951,13 @@
           showToast('Snippet deleted');
         });
 
-        actions.appendChild(upEl);
-        actions.appendChild(downEl);
+        const actionsExtra = document.createElement('div');
+        actionsExtra.className = 'pmx-snip-actions-extra';
+        actionsExtra.appendChild(delEl);
+        actionsExtra.appendChild(editEl);
+        actions.appendChild(actionsExtra);
         actions.appendChild(sendEl);
-        actions.appendChild(editEl);
-        actions.appendChild(delEl);
+        row.appendChild(dragHandle);
         row.appendChild(info);
         row.appendChild(actions);
         snipsScroll.appendChild(row);
