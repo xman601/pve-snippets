@@ -1,0 +1,25 @@
+{
+  "manifest_version": 3,
+  "name": "Proxmox Paste Helper",
+  "version": "1.0.0",
+  "description": "Enables clipboard paste into Proxmox noVNC console via Ctrl+Shift+V or floating button",
+  "permissions": [
+    "clipboardRead"
+  ],
+  "host_permissions": [
+    "<all_urls>"
+  ],
+  "content_scripts": [
+    {
+      "matches": ["<all_urls>"],
+      "js": ["content.js"],
+      "run_at": "document_idle",
+      "all_frames": true
+    }
+  ],
+  "icons": {
+    "16": "icon.png",
+    "48": "icon.png",
+    "128": "icon.png"
+  }
+}
