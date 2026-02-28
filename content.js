@@ -202,6 +202,19 @@
     await storageSet(SNIPPETS_KEY, snippets.filter((s) => s.id !== id));
   }
 
+  async function moveSnippet(id, direction) {
+    const snippets = await getSnippets();
+    const i = snippets.findIndex((s) => s.id === id);
+    if (i < 0) return;
+    if (direction === 'up' && i > 0) {
+      [snippets[i - 1], snippets[i]] = [snippets[i], snippets[i - 1]];
+      await storageSet(SNIPPETS_KEY, snippets);
+    } else if (direction === 'down' && i < snippets.length - 1) {
+      [snippets[i], snippets[i + 1]] = [snippets[i + 1], snippets[i]];
+      await storageSet(SNIPPETS_KEY, snippets);
+    } else return;
+  }
+
   // ─────────────────────────────────────────────────────────────────
   // Inject floating paste button + expandable panel
   // ─────────────────────────────────────────────────────────────────
@@ -410,7 +423,8 @@
 
       #pmx-wrap .pmx-snip-edit {
         background: transparent; border: 1px solid #2e2e2e; border-radius: 3px;
-        color: #555; cursor: pointer; padding: 0 4px;
+        color: #555; cursor: pointer; padding: 0;
+        width: 24px !important; min-width: 24px !important; max-width: 24px !important;
         transition: border-color 0.12s, color 0.12s;
       }
       #pmx-wrap .pmx-snip-edit svg { width: 9px; height: 9px; }
@@ -419,10 +433,24 @@
 
       #pmx-wrap .pmx-snip-del {
         background: transparent; border: none; color: #2e2e2e;
-        cursor: pointer; font-size: 10px; padding: 0 3px; line-height: 1;
+        cursor: pointer; font-size: 10px; padding: 0; line-height: 1;
+        width: 24px !important; min-width: 24px !important; max-width: 24px !important;
         transition: color 0.12s;
       }
       #pmx-wrap .pmx-snip-del:hover { color: #ff3344; }
+
+      #pmx-wrap .pmx-snip-move {
+        background: transparent; border: 1px solid #2e2e2e; border-radius: 3px;
+        color: #555; cursor: pointer; padding: 0;
+        width: 24px; min-width: 24px; max-width: 24px;
+        height: 24px; min-height: 24px; box-sizing: border-box;
+        display: inline-flex; align-items: center; justify-content: center;
+        flex: 0 0 auto !important; transition: border-color 0.12s, color 0.12s;
+        -webkit-appearance: none; appearance: none;
+      }
+      #pmx-wrap .pmx-snip-move:hover:not(:disabled) { border-color: #f60; color: #f60; }
+      #pmx-wrap .pmx-snip-move:disabled { opacity: 0.35; cursor: not-allowed; }
+      #pmx-wrap .pmx-snip-move svg { width: 10px; height: 10px; }
 
       .pmx-snip-empty {
         padding: 24px 12px; text-align: center; font-size: 10px; color: #333; line-height: 1.7;
@@ -653,7 +681,7 @@
 
     const snipsFooter = document.createElement('div');
     snipsFooter.className = 'pmx-snip-footer';
-    snipsFooter.innerHTML = '<span class="pmx-snip-hint">Hover to <span>Send</span>, edit, or delete</span>';
+    snipsFooter.innerHTML = '<span class="pmx-snip-hint">Hover to move, <span>Send</span>, edit, or delete</span>';
 
     snipsView.appendChild(snipsScroll);
     snipsView.appendChild(snipsFooter);
@@ -784,7 +812,7 @@
 
     // ── Render snippets list ──
     async function renderSnippets() {
-      const snippets = (await getSnippets()).sort((a, b) => (b.updatedAt || 0) - (a.updatedAt || 0));
+      const snippets = await getSnippets();
       snipsScroll.innerHTML = '';
 
       if (snippets.length === 0) {
@@ -795,7 +823,8 @@
         return;
       }
 
-      for (const s of snippets) {
+      for (let i = 0; i < snippets.length; i++) {
+        const s = snippets[i];
         const row = document.createElement('div');
         row.className = 'pmx-snip-row';
 
@@ -813,6 +842,30 @@
 
         const actions = document.createElement('div');
         actions.className = 'pmx-snip-actions';
+
+        const upEl = document.createElement('button');
+        upEl.type = 'button';
+        upEl.className = 'pmx-snip-move';
+        upEl.title = 'Move up';
+        upEl.innerHTML = CHEV_UP;
+        upEl.disabled = i === 0;
+        upEl.addEventListener('click', async (e) => {
+          e.stopPropagation();
+          await moveSnippet(s.id, 'up');
+          await renderSnippets();
+        });
+
+        const downEl = document.createElement('button');
+        downEl.type = 'button';
+        downEl.className = 'pmx-snip-move';
+        downEl.title = 'Move down';
+        downEl.innerHTML = CHEV_DOWN;
+        downEl.disabled = i === snippets.length - 1;
+        downEl.addEventListener('click', async (e) => {
+          e.stopPropagation();
+          await moveSnippet(s.id, 'down');
+          await renderSnippets();
+        });
 
         const sendEl = document.createElement('button');
         sendEl.type = 'button';
@@ -852,6 +905,8 @@
           showToast('Snippet deleted');
         });
 
+        actions.appendChild(upEl);
+        actions.appendChild(downEl);
         actions.appendChild(sendEl);
         actions.appendChild(editEl);
         actions.appendChild(delEl);
