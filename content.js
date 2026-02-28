@@ -1,12 +1,12 @@
-// Proxmox Paste Helper - Content Script
-// Injects paste support into Proxmox noVNC console
+// PVE Paste Helper - Content Script
+// Injects paste support into PVE noVNC console
 
 (function () {
   'use strict';
 
   const SNIPPETS_KEY = 'pmx_snippets_v1';
 
-  // Only activate on pages that look like a Proxmox noVNC console
+  // Only activate on pages that look like a PVE noVNC console
   function isProxmoxConsole() {
     const path = window.location.pathname;
     const search = window.location.search;
@@ -159,12 +159,8 @@
       showToast(`⏳ Pasting ${text.length} chars...`);
       sendText(canvas, text);
     } catch (err) {
-      // Fallback: show a prompt dialog if clipboard API is denied
-      const text = prompt('Clipboard access denied. Paste your text here:');
-      if (text) {
-        showToast(`⏳ Pasting ${text.length} chars...`);
-        sendText(canvas, text);
-      }
+      // Fallback: clipboard is blocked; instruct user to paste into the panel textarea instead
+      showToast('⚠ Clipboard blocked. Open the panel and paste into the text box.');
     }
   }
 
@@ -281,18 +277,13 @@
     const CHEV_UP   = `<svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="18 15 12 9 6 15"/></svg>`;
     const CHEV_RIGHT = `<svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"/></svg>`;
 
-    const link = document.createElement('link');
-    link.rel = 'stylesheet';
-    link.href = 'https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@300;400;500;700&family=Space+Mono:wght@400;700&display=swap';
-    document.head.appendChild(link);
-
     const CSS = `
       #pmx-wrap {
         position: fixed;
         bottom: 16px;
         right: 16px;
         z-index: 999999;
-        font-family: 'JetBrains Mono', monospace;
+        font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
         display: flex;
         flex-direction: column;
         align-items: flex-end;
@@ -388,7 +379,7 @@
         align-items: center;
       }
       .pmx-palette-title {
-        font-family: 'Space Mono', monospace;
+        font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
         font-size: 10px;
         font-weight: 600;
         color: #c46900;
@@ -426,7 +417,7 @@
         border: 1px solid #2a2a2a;
         border-radius: 10px;
         padding: 6px 10px;
-        font-family: 'Space Mono', monospace;
+        font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
         font-size: 10px;
         outline: none;
       }
@@ -438,7 +429,7 @@
         color: #888;
         border: 1px solid #2a2a2a;
         border-radius: 10px;
-        font-family: 'Space Mono', monospace;
+        font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
         font-size: 10px;
         font-weight: 600;
         padding: 6px 10px;
@@ -460,7 +451,7 @@
         border: none;
         outline: none;
         resize: none;
-        font-family: 'JetBrains Mono', monospace;
+        font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
         font-size: 12px;
         font-weight: 500;
         color: #bbb;
@@ -482,7 +473,7 @@
         align-items: center;
       }
       .pmx-kbd {
-        font-family: 'Space Mono', monospace;
+        font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
         font-size: 9px;
         font-weight: 500;
         color: #555;
@@ -497,7 +488,7 @@
         color: #fff;
         border: none;
         border-radius: 10px;
-        font-family: 'Space Mono', monospace;
+        font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
         font-size: 10px;
         font-weight: 600;
         padding: 5px 12px;
@@ -620,15 +611,12 @@
       if (!currentText.trim()) { showToast('⚠ Nothing to save'); return; }
 
       const existingId = snippetSelect.value || '';
-      let defaultName = 'New snippet';
-      if (existingId) {
-        const snippets = await getSnippets();
-        const s = snippets.find((x) => x.id === existingId);
-        if (s && s.name) defaultName = s.name;
-      }
 
-      const name = prompt('Snippet name:', defaultName);
-      if (name === null) return;
+      // Derive a reasonable default name from the first non-empty line of the snippet
+      const firstLine = (currentText.split(/\r?\n/).find((ln) => ln.trim().length) || '').trim();
+      const autoName = firstLine || 'Snippet';
+      const name = autoName.length > 40 ? `${autoName.slice(0, 37)}…` : autoName;
+
       const res = await saveSnippet({ id: existingId || undefined, name, text: currentText });
       if (!res.ok) {
         showToast(res.reason === 'no_name' ? '⚠ Name required' : '⚠ Text required');
@@ -641,10 +629,6 @@
     deleteSnippetBtn.addEventListener('click', async () => {
       const id = snippetSelect.value;
       if (!id) return;
-      const snippets = await getSnippets();
-      const s = snippets.find((x) => x.id === id);
-      const ok = confirm(`Delete snippet${s?.name ? ` “${s.name}”` : ''}?`);
-      if (!ok) return;
       await deleteSnippet(id);
       await refreshSnippets('');
       showToast('✓ Snippet deleted');
@@ -737,7 +721,7 @@
     waitForCanvas((canvas) => {
       injectButton(canvas);
       injectHotkey(canvas);
-      console.log('[Proxmox Paste Helper] Ready. Use ' + (/Mac|iPod|iPhone|iPad/.test(navigator.platform) ? '⌘V' : 'Ctrl+V') + ' or the paste button.');
+      console.log('[PVE Paste Helper] Ready. Use ' + (/Mac|iPod|iPhone|iPad/.test(navigator.platform) ? '⌘V' : 'Ctrl+V') + ' or the paste button.');
     });
   }
 

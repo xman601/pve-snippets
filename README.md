@@ -1,6 +1,6 @@
-# Proxmox Paste Helper
+# PVE Paste Helper
 
-A Chrome/Edge browser extension that adds clipboard paste support to the Proxmox noVNC console.
+A Chrome/Edge browser extension that adds clipboard paste support to the PVE (Proxmox VE) noVNC console.
 
 ## Features
 
@@ -24,7 +24,7 @@ For Edge: go to `edge://extensions/` and follow the same steps.
 
 ## Usage
 
-1. Open your Proxmox web UI and launch a VM console (noVNC)
+1. Open your PVE web UI and launch a VM console (noVNC)
 2. Copy text on your host machine (`Ctrl+C`)
 3. Click the **Paste** button in the bottom-right, or press native paste (`Ctrl+V` / `⌘V`)
 4. The text will be typed into the VM character by character

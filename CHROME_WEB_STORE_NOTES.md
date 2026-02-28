@@ -11,8 +11,8 @@ Issues to resolve before submitting to the Chrome Web Store.
 The extension requests access to every website and injects into every iframe on every page. CWS requires minimum necessary permissions.
 
 **Options:**
-- Switch to `"optional_host_permissions": ["<all_urls>"]` so the user grants access only to their specific Proxmox host at runtime
-- OR keep `<all_urls>` and write a detailed justification in the store listing explaining why it's required (Proxmox runs on user-defined IPs/hostnames)
+- Switch to `"optional_host_permissions": ["<all_urls>"]` so the user grants access only to their specific PVE host at runtime
+- OR keep `<all_urls>` and write a detailed justification in the store listing explaining why it's required (PVE runs on user-defined IPs/hostnames)
 
 ---
 
@@ -71,11 +71,11 @@ Extensions without a toolbar `action` look incomplete to reviewers. Clicking the
 **Fix:** Add a minimal popup to `manifest.json`:
 ```json
 "action": {
-  "default_title": "Proxmox Paste Helper",
+  "default_title": "PVE Paste Helper",
   "default_popup": "popup.html"
 }
 ```
-The popup can just say "Open a Proxmox VM console to use this extension."
+The popup can just say "Open a PVE VM console to use this extension."
 
 ---
 
