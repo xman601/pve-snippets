@@ -5,9 +5,10 @@ A Chrome/Edge browser extension that adds clipboard paste support to the Proxmox
 ## Features
 
 - **Floating Paste Button** — always-visible button in the bottom-right corner of the console
-- **Keyboard Shortcut** — `Ctrl+Shift+V` triggers paste anywhere on the console page
+- **Keyboard Shortcut** — native paste (`Ctrl+V` on Windows/Linux, `⌘V` on macOS) pastes into the VM when the noVNC console is focused
 - **Fallback Dialog** — if clipboard permission is denied, a text prompt appears so you can manually paste
 - **Visual Feedback** — toast notifications show paste progress and character count
+- **Saved Snippets** — save and reuse common paste blocks from the paste panel
 
 ## Installation (Developer Mode)
 
@@ -25,13 +26,14 @@ For Edge: go to `edge://extensions/` and follow the same steps.
 
 1. Open your Proxmox web UI and launch a VM console (noVNC)
 2. Copy text on your host machine (`Ctrl+C`)
-3. Click the **Paste** button in the bottom-right, or press `Ctrl+Shift+V`
+3. Click the **Paste** button in the bottom-right, or press native paste (`Ctrl+V` / `⌘V`)
 4. The text will be typed into the VM character by character
+5. (Optional) Open the panel, choose a snippet from **Snippets…**, or click **Save** to store what’s in the textarea
 
 ## Notes
 
 - The extension detects pages with a `<canvas>` element (which noVNC uses)
-- Characters are sent with a 30ms delay between each to avoid dropped input
+- Characters are sent with a small delay between each to avoid dropped input
 - Newlines are translated to Enter keypresses
 - Very long pastes (1000+ chars) will take a moment — watch the toast notification
 

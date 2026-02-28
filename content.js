@@ -4,6 +4,8 @@
 (function () {
   'use strict';
 
+  const SNIPPETS_KEY = 'pmx_snippets_v1';
+
   // Only activate on pages that look like a Proxmox noVNC console
   function isProxmoxConsole() {
     const path = window.location.pathname;
@@ -48,22 +50,59 @@
     return codeMap[char] || (c >= 32 && c <= 126 ? 'Key' + char.toUpperCase() : 'KeyA');
   }
 
+  function needsShift(char) {
+    if (char >= 'A' && char <= 'Z') return true;
+    return "~!@#$%^&*()_+{}|:\"<>?".includes(char);
+  }
+
   // Send a single character to the noVNC canvas using keyboard events
   function sendChar(canvas, char) {
     const keyCode = char.charCodeAt(0);
     const code = getKeyCode(char);
+    const shift = needsShift(char);
 
-    const opts = {
-      key: char,
-      code: code,
-      keyCode: keyCode,
-      which: keyCode,
+    const baseOpts = {
       bubbles: true,
       cancelable: true
     };
 
-    canvas.dispatchEvent(new KeyboardEvent('keydown', opts));
-    canvas.dispatchEvent(new KeyboardEvent('keyup', opts));
+    // For characters that require shift (e.g. '&', '+', uppercase letters), we must
+    // emulate the modifier state, otherwise noVNC may translate the key wrong or drop it.
+    if (shift) {
+      canvas.dispatchEvent(new KeyboardEvent('keydown', {
+        ...baseOpts,
+        key: 'Shift',
+        code: 'ShiftLeft',
+        keyCode: 16,
+        which: 16,
+        shiftKey: true
+      }));
+    }
+
+    const keyEventOpts = {
+      ...baseOpts,
+      key: char,
+      code: code,
+      keyCode: keyCode,
+      which: keyCode,
+      charCode: keyCode,
+      shiftKey: shift
+    };
+
+    canvas.dispatchEvent(new KeyboardEvent('keydown', keyEventOpts));
+    canvas.dispatchEvent(new KeyboardEvent('keypress', keyEventOpts));
+    canvas.dispatchEvent(new KeyboardEvent('keyup', keyEventOpts));
+
+    if (shift) {
+      canvas.dispatchEvent(new KeyboardEvent('keyup', {
+        ...baseOpts,
+        key: 'Shift',
+        code: 'ShiftLeft',
+        keyCode: 16,
+        which: 16,
+        shiftKey: false
+      }));
+    }
   }
 
   // Send text character by character; noVNC/VM need correct key codes and time per key
@@ -163,6 +202,69 @@
     toastTimeout = setTimeout(() => {
       toast.style.opacity = '0';
     }, 2500);
+  }
+
+  function storageGet(key) {
+    try {
+      if (typeof chrome !== 'undefined' && chrome.storage && chrome.storage.local) {
+        return chrome.storage.local.get([key]).then((res) => res[key]);
+      }
+    } catch (_) {}
+    try {
+      const raw = localStorage.getItem(key);
+      return Promise.resolve(raw ? JSON.parse(raw) : undefined);
+    } catch (_) {
+      return Promise.resolve(undefined);
+    }
+  }
+
+  function storageSet(key, value) {
+    try {
+      if (typeof chrome !== 'undefined' && chrome.storage && chrome.storage.local) {
+        return chrome.storage.local.set({ [key]: value });
+      }
+    } catch (_) {}
+    try {
+      localStorage.setItem(key, JSON.stringify(value));
+    } catch (_) {}
+    return Promise.resolve();
+  }
+
+  async function getSnippets() {
+    const v = await storageGet(SNIPPETS_KEY);
+    return Array.isArray(v) ? v : [];
+  }
+
+  async function saveSnippet({ id, name, text }) {
+    const now = Date.now();
+    const snippets = await getSnippets();
+    const trimmedName = String(name || '').trim();
+    if (!trimmedName) return { ok: false, reason: 'no_name' };
+
+    const trimmedText = String(text || '');
+    if (!trimmedText) return { ok: false, reason: 'no_text' };
+
+    if (id) {
+      const idx = snippets.findIndex((s) => s.id === id);
+      if (idx >= 0) {
+        snippets[idx] = { ...snippets[idx], name: trimmedName, text: trimmedText, updatedAt: now };
+      } else {
+        snippets.unshift({ id, name: trimmedName, text: trimmedText, updatedAt: now });
+      }
+    } else {
+      const newId = `s_${now}_${Math.random().toString(16).slice(2)}`;
+      snippets.unshift({ id: newId, name: trimmedName, text: trimmedText, updatedAt: now });
+      id = newId;
+    }
+
+    await storageSet(SNIPPETS_KEY, snippets.slice(0, 50));
+    return { ok: true, id };
+  }
+
+  async function deleteSnippet(id) {
+    const snippets = await getSnippets();
+    const next = snippets.filter((s) => s.id !== id);
+    await storageSet(SNIPPETS_KEY, next);
   }
 
   // Inject floating paste button + expandable text panel
@@ -309,6 +411,49 @@
         color: #888;
       }
 
+      #pmx-snippets {
+        padding: 8px 10px;
+        border-bottom: 1px solid #2a2a2a;
+        display: flex;
+        gap: 8px;
+        align-items: center;
+      }
+      #pmx-snippet-select {
+        flex: 1;
+        min-width: 0;
+        background: #111;
+        color: #bbb;
+        border: 1px solid #2a2a2a;
+        border-radius: 10px;
+        padding: 6px 10px;
+        font-family: 'Space Mono', monospace;
+        font-size: 10px;
+        outline: none;
+      }
+      #pmx-snippet-select:focus {
+        border-color: #E57000;
+      }
+      .pmx-snippet-btn {
+        background: transparent;
+        color: #888;
+        border: 1px solid #2a2a2a;
+        border-radius: 10px;
+        font-family: 'Space Mono', monospace;
+        font-size: 10px;
+        font-weight: 600;
+        padding: 6px 10px;
+        cursor: pointer;
+        letter-spacing: 0.03em;
+        transition: color 0.15s, border-color 0.15s, background 0.15s;
+        -webkit-appearance: none;
+        appearance: none;
+      }
+      .pmx-snippet-btn:hover {
+        color: #bbb;
+        border-color: #444;
+        background: #222;
+      }
+
       #pmx-textarea {
         width: 100%;
         background: transparent;
@@ -410,6 +555,101 @@
     textarea.id = 'pmx-textarea';
     textarea.placeholder = 'Paste or type text here...';
 
+    // Snippets
+    const snippetsBar = document.createElement('div');
+    snippetsBar.id = 'pmx-snippets';
+
+    const snippetSelect = document.createElement('select');
+    snippetSelect.id = 'pmx-snippet-select';
+    snippetSelect.title = 'Saved snippets';
+
+    const saveSnippetBtn = document.createElement('button');
+    saveSnippetBtn.type = 'button';
+    saveSnippetBtn.className = 'pmx-snippet-btn';
+    saveSnippetBtn.textContent = 'Save';
+    saveSnippetBtn.title = 'Save textarea as snippet';
+
+    const deleteSnippetBtn = document.createElement('button');
+    deleteSnippetBtn.type = 'button';
+    deleteSnippetBtn.className = 'pmx-snippet-btn';
+    deleteSnippetBtn.textContent = 'Delete';
+    deleteSnippetBtn.title = 'Delete selected snippet';
+
+    snippetsBar.appendChild(snippetSelect);
+    snippetsBar.appendChild(saveSnippetBtn);
+    snippetsBar.appendChild(deleteSnippetBtn);
+
+    async function refreshSnippets(selectedId) {
+      const snippets = (await getSnippets()).slice().sort((a, b) => (b.updatedAt || 0) - (a.updatedAt || 0));
+      snippetSelect.innerHTML = '';
+
+      const placeholder = document.createElement('option');
+      placeholder.value = '';
+      placeholder.textContent = snippets.length ? 'Snippets…' : 'No snippets saved';
+      snippetSelect.appendChild(placeholder);
+
+      for (const s of snippets) {
+        const opt = document.createElement('option');
+        opt.value = s.id;
+        opt.textContent = s.name;
+        snippetSelect.appendChild(opt);
+      }
+
+      snippetSelect.value = selectedId || '';
+      deleteSnippetBtn.disabled = !snippetSelect.value;
+      deleteSnippetBtn.style.opacity = deleteSnippetBtn.disabled ? '0.5' : '1';
+      deleteSnippetBtn.style.cursor = deleteSnippetBtn.disabled ? 'not-allowed' : 'pointer';
+    }
+
+    snippetSelect.addEventListener('change', async () => {
+      const id = snippetSelect.value;
+      deleteSnippetBtn.disabled = !id;
+      deleteSnippetBtn.style.opacity = deleteSnippetBtn.disabled ? '0.5' : '1';
+      deleteSnippetBtn.style.cursor = deleteSnippetBtn.disabled ? 'not-allowed' : 'pointer';
+      if (!id) return;
+      const snippets = await getSnippets();
+      const s = snippets.find((x) => x.id === id);
+      if (!s) return;
+      textarea.value = s.text || '';
+      textarea.focus();
+      showToast(`✓ Loaded “${s.name}”`);
+    });
+
+    saveSnippetBtn.addEventListener('click', async () => {
+      const currentText = textarea.value || '';
+      if (!currentText.trim()) { showToast('⚠ Nothing to save'); return; }
+
+      const existingId = snippetSelect.value || '';
+      let defaultName = 'New snippet';
+      if (existingId) {
+        const snippets = await getSnippets();
+        const s = snippets.find((x) => x.id === existingId);
+        if (s && s.name) defaultName = s.name;
+      }
+
+      const name = prompt('Snippet name:', defaultName);
+      if (name === null) return;
+      const res = await saveSnippet({ id: existingId || undefined, name, text: currentText });
+      if (!res.ok) {
+        showToast(res.reason === 'no_name' ? '⚠ Name required' : '⚠ Text required');
+        return;
+      }
+      await refreshSnippets(res.id);
+      showToast('✓ Snippet saved');
+    });
+
+    deleteSnippetBtn.addEventListener('click', async () => {
+      const id = snippetSelect.value;
+      if (!id) return;
+      const snippets = await getSnippets();
+      const s = snippets.find((x) => x.id === id);
+      const ok = confirm(`Delete snippet${s?.name ? ` “${s.name}”` : ''}?`);
+      if (!ok) return;
+      await deleteSnippet(id);
+      await refreshSnippets('');
+      showToast('✓ Snippet deleted');
+    });
+
     // Footer
     const footer = document.createElement('div');
     footer.id = 'pmx-footer';
@@ -432,6 +672,7 @@
     footer.appendChild(sendBtn);
 
     panel.appendChild(header);
+    panel.appendChild(snippetsBar);
     panel.appendChild(textarea);
     panel.appendChild(footer);
 
@@ -460,6 +701,7 @@
     wrap.appendChild(panel);
     wrap.appendChild(btnRow);
     document.body.appendChild(wrap);
+    refreshSnippets('').catch(() => {});
 
     function openPanel() {
       panel.classList.add('open');

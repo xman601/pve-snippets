@@ -4,7 +4,8 @@
   "version": "1.0.0",
   "description": "Enables clipboard paste into Proxmox noVNC console via Ctrl+Shift+V or floating button",
   "permissions": [
-    "clipboardRead"
+    "clipboardRead",
+    "storage"
   ],
   "host_permissions": [
     "<all_urls>"
