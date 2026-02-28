@@ -6,14 +6,14 @@
 
   const SNIPPETS_KEY = 'pmx_snippets_v1';
 
-  // ── Theme: 6 colors only. Change these to restyle the whole UI. ──
+  // ── Theme: 6 colors. Keep in sync with extension/theme.css (popup uses that file). ──
   const THEME = {
-    bg: '#141414',           // darkest: header, rows, footer, inputs
-    bgPanel: '#1a1a1a',      // panels, cards, hover
-    border: '#2a2a2a',       // all borders
-    text: '#fff',            // primary text, button labels
-    textMuted: '#8a8a8a',    // hints, previews, inactive, placeholders
-    accent: '#f60',          // buttons, active tab, titles, focus
+    bg: '#141414',           // --pmx-bg
+    bgPanel: '#1a1a1a',     // --pmx-bg-panel
+    border: '#2a2a2a',      // --pmx-border
+    text: '#fff',           // --pmx-text
+    textMuted: '#8a8a8a',   // --pmx-text-muted
+    accent: '#f60',         // --pmx-accent
   };
 
   // Only activate on pages that look like a PVE noVNC console

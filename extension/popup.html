@@ -3,17 +3,15 @@
   <head>
     <meta charset="utf-8">
     <title>PVE Paste Helper</title>
+    <link rel="stylesheet" href="theme.css">
     <style>
-      :root {
-        color-scheme: dark;
-      }
       body {
         margin: 0;
         padding: 12px 14px;
         font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
         font-size: 13px;
-        background: #111;
-        color: #eee;
+        background: var(--pmx-bg);
+        color: var(--pmx-text);
         width: 280px;
       }
       h1 {
@@ -28,7 +26,7 @@
       code {
         font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
         font-size: 12px;
-        background: #222;
+        background: var(--pmx-border);
         padding: 2px 4px;
         border-radius: 4px;
       }
@@ -36,17 +34,17 @@
         display: block;
         margin-top: 8px;
         font-size: 11px;
-        color: #999;
+        color: var(--pmx-text-muted);
       }
       .section {
         margin-top: 14px;
         padding-top: 12px;
-        border-top: 1px solid #2a2a2a;
+        border-top: 1px solid var(--pmx-border);
       }
       .section-title {
         font-size: 12px;
         font-weight: 600;
-        color: #bbb;
+        color: var(--pmx-text-muted);
         margin-bottom: 8px;
       }
       button {
@@ -55,16 +53,16 @@
         margin-bottom: 6px;
         font-size: 12px;
         font-family: inherit;
-        background: #222;
-        color: #eee;
-        border: 1px solid #2a2a2a;
+        background: var(--pmx-bg-panel);
+        color: var(--pmx-text);
+        border: 1px solid var(--pmx-border);
         border-radius: 8px;
         cursor: pointer;
         transition: background 0.15s, border-color 0.15s;
       }
       button:hover {
-        background: #2a2a2a;
-        border-color: #E57000;
+        background: var(--pmx-border);
+        border-color: var(--pmx-accent);
       }
       button:disabled {
         opacity: 0.5;
@@ -75,16 +73,23 @@
       }
       .hint {
         font-size: 11px;
-        color: #666;
+        color: var(--pmx-text-muted);
         margin-top: 6px;
       }
       .popup-footer {
         display: block;
         margin-top: 12px;
         padding-top: 10px;
-        border-top: 1px solid #2a2a2a;
+        border-top: 1px solid var(--pmx-border);
         font-size: 11px;
-        color: #666;
+        color: var(--pmx-text-muted);
+      }
+      .popup-footer a {
+        color: var(--pmx-accent);
+        text-decoration: none;
+      }
+      .popup-footer a:hover {
+        text-decoration: underline;
       }
     </style>
   </head>
@@ -105,6 +110,10 @@
 
     <footer class="popup-footer">
       <span id="version-label"></span>
+      <br>
+      <a href="https://github.com/xman601/pve-snippets" target="_blank" rel="noopener noreferrer">Source on GitHub</a>
+      &middot;
+      <a href="https://github.com/xman601/pve-snippets/blob/main/docs/PRIVACY_POLICY_TEMPLATE.md" target="_blank" rel="noopener noreferrer">Privacy policy</a>
     </footer>
 
     <script src="popup.js"></script>

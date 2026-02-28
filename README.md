@@ -30,12 +30,19 @@ For Edge: go to `edge://extensions/` and follow the same steps.
 4. The text will be typed into the VM character by character
 5. (Optional) Open the panel, choose a snippet from **Snippets…**, or click **Save** to store what’s in the textarea
 
+**Export & import snippets:** Click the PVE Paste Helper icon in the browser toolbar (top-right) to open the extension popup. There you can **Export snippets** (download all as JSON) or **Import snippets** (load from a JSON file). Snippets stay on your device; export/import is for backup or moving to another browser.
+
+## Privacy
+
+All data stays on your device. Clipboard content is used only when you paste and is not stored or sent anywhere. Snippets are stored locally in the browser. The extension does not send data to any server. See `docs/PRIVACY_POLICY_TEMPLATE.md` for the full policy.
+
 ## Notes
 
 - The extension detects pages with a `<canvas>` element (which noVNC uses)
 - Characters are sent with a small delay between each to avoid dropped input
 - Newlines are translated to Enter keypresses
 - Very long pastes (1000+ chars) will take a moment — watch the toast notification
+- Maximum of 50 saved snippets; oldest are dropped when you add more
 
 ## Troubleshooting
 
@@ -51,8 +58,13 @@ For Edge: go to `edge://extensions/` and follow the same steps.
 extension/       # Load unpacked from here; this is what gets zipped for the store
   manifest.json, content.js, popup.html, popup.js, icons/
 scripts/         # Build scripts
-  build-icons.py      # SVG → PNG (run after changing assets/icon.svg)
-  build-store-zip.py  # Creates pve-paste-helper.zip for Chrome Web Store
+  build-icons.py, build-store-zip.py, requirements-icons.txt
 assets/          # Source assets (e.g. icon.svg)
 docs/            # Additional documentation
 ```
+
+**Development:** After changing `assets/icon.svg`, run `python scripts/build-icons.py` (install deps: `pip install -r scripts/requirements-icons.txt`). To build the store zip: `python scripts/build-store-zip.py`.
+
+## License
+
+MIT — see [LICENSE](LICENSE).

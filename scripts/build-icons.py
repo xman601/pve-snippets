@@ -2,7 +2,7 @@
 """Generate icon PNGs in extension/icons/ from assets/icon.svg.
 
 Usage:
-  pip install -r requirements-icons.txt   # or: pip install cairosvg
+  pip install -r scripts/requirements-icons.txt   # or: pip install cairosvg
   python scripts/build-icons.py
 """
 
@@ -12,7 +12,7 @@ from pathlib import Path
 try:
     import cairosvg
 except ImportError:
-    print("Install cairosvg: pip install cairosvg", file=sys.stderr)
+    print("Install cairosvg: pip install -r scripts/requirements-icons.txt", file=sys.stderr)
     sys.exit(1)
 
 ROOT = Path(__file__).resolve().parent.parent
