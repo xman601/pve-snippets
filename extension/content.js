@@ -103,8 +103,20 @@
     }
   }
 
-  // Send text character by character
+  // Release modifier and 'v' on the canvas so the VM is not left with Ctrl/Cmd+V "held"
+  // (otherwise the first pasted character can be dropped or interpreted as a shortcut).
+  function releasePasteKeys(canvas) {
+    const opts = { bubbles: true, cancelable: true };
+    canvas.dispatchEvent(new KeyboardEvent('keyup', { ...opts, key: 'v', code: 'KeyV', keyCode: 86, which: 86 }));
+    canvas.dispatchEvent(new KeyboardEvent('keyup', { ...opts, key: 'Control', code: 'ControlLeft', keyCode: 17, which: 17, ctrlKey: false }));
+    canvas.dispatchEvent(new KeyboardEvent('keyup', { ...opts, key: 'Meta', code: 'MetaLeft', keyCode: 91, which: 91, metaKey: false }));
+  }
+
+  // Send text character by character. Release paste keys and delay first char so noVNC is ready.
+  const FIRST_CHAR_DELAY_MS = 80;
+
   function sendText(canvas, text, delay = 50) {
+    releasePasteKeys(canvas);
     canvas.focus();
     const normalized = text.replace(/\r\n/g, '\n');
     let i = 0;
@@ -124,7 +136,7 @@
       i++;
       setTimeout(sendNext, delay);
     }
-    sendNext();
+    setTimeout(sendNext, FIRST_CHAR_DELAY_MS);
   }
 
   // Read clipboard and paste into canvas
