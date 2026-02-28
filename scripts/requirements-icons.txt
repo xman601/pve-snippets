@@ -1,0 +1,2 @@
+# Only needed to generate PNGs from icon.svg (run build-icons.py)
+cairosvg>=2.7.0

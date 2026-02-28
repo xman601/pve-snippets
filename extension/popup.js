@@ -134,4 +134,10 @@
       exportHint.textContent = 'No snippets saved yet. Save some from the paste panel on a VM console.';
     }
   });
+
+  const versionEl = document.getElementById('version-label');
+  if (versionEl && typeof chrome !== 'undefined' && chrome.runtime && chrome.runtime.getManifest) {
+    const manifest = chrome.runtime.getManifest();
+    versionEl.textContent = 'Version ' + (manifest.version || '');
+  }
 })();

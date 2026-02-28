@@ -1,0 +1,15 @@
+/**
+ * PVE Paste Helper — shared color scheme
+ * Use this file in the popup. Keep content.js THEME object in sync when changing colors.
+ */
+:root {
+  color-scheme: dark;
+
+  /* 6-color palette — change here for consistency across popup (and content.js) */
+  --pmx-bg: #141414;
+  --pmx-bg-panel: #1a1a1a;
+  --pmx-border: #2a2a2a;
+  --pmx-text: #fff;
+  --pmx-text-muted: #8a8a8a;
+  --pmx-accent: #f60;
+}
