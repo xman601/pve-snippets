@@ -16,16 +16,25 @@
     accent: '#f60',         // --pmx-accent
   };
 
-  // Only activate on pages that look like a PVE noVNC console
+  // Only activate on pages that look like a PVE (Proxmox VE) noVNC console.
+  // Requires PVE-specific URL signals so we don't run on other sites that use noVNC.
   function isProxmoxConsole() {
     const path = window.location.pathname;
     const search = window.location.search;
+
+    const hasNovncPath = path.includes('novnc') || path.includes('vncviewer');
+    const hasNovncQuery = search.includes('novnc=1');
+    const hasConsoleKvmLxc = search.includes('console=kvm') || search.includes('console=lxc');
+    const hasVmid = search.includes('vmid=');
+    const hasNode = search.includes('node=');
+    const hasPvePath = path.includes('pve');
+
+    // PVE console URLs typically have: console=kvm|lxc, and/or vmid=, node=, and/or novnc path/query
     return (
-      path.includes('novnc') ||
-      path.includes('vncviewer') ||
-      search.includes('novnc=1') ||
-      search.includes('console=kvm') ||
-      search.includes('console=lxc')
+      (hasConsoleKvmLxc && (hasVmid || hasNode || hasNovncPath || hasNovncQuery)) ||
+      (hasVmid && (hasNovncPath || hasNovncQuery || hasNode)) ||
+      (hasNode && (hasNovncPath || hasNovncQuery)) ||
+      (hasPvePath && hasNovncPath)
     );
   }
 
