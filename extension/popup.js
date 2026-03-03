@@ -2,6 +2,7 @@
   'use strict';
 
   const SNIPPETS_KEY = 'pmx_snippets_v1';
+  const AUTO_ENTER_KEY = 'pmx_auto_enter';
 
   const MAX_SNIPPETS = 50;
 
@@ -9,6 +10,7 @@
   const exportHint = document.getElementById('export-hint');
   const importBtn = document.getElementById('import-btn');
   const importFile = document.getElementById('import-file');
+  const autoEnterCheckbox = document.getElementById('auto-enter');
 
   function getSnippets() {
     return new Promise(function (resolve) {
@@ -127,6 +129,37 @@
     };
     reader.readAsText(file, 'utf-8');
   });
+
+  function getAutoEnter() {
+    return new Promise(function (resolve) {
+      try {
+        if (typeof chrome !== 'undefined' && chrome.storage && chrome.storage.local) {
+          chrome.storage.local.get([AUTO_ENTER_KEY], function (res) {
+            resolve(Boolean(res[AUTO_ENTER_KEY]));
+          });
+          return;
+        }
+      } catch (_) {}
+      resolve(false);
+    });
+  }
+
+  function setAutoEnter(value) {
+    try {
+      if (typeof chrome !== 'undefined' && chrome.storage && chrome.storage.local) {
+        chrome.storage.local.set({ [AUTO_ENTER_KEY]: value });
+      }
+    } catch (_) {}
+  }
+
+  if (autoEnterCheckbox) {
+    getAutoEnter().then(function (checked) {
+      autoEnterCheckbox.checked = checked;
+    });
+    autoEnterCheckbox.addEventListener('change', function () {
+      setAutoEnter(autoEnterCheckbox.checked);
+    });
+  }
 
   getSnippets().then(function (snippets) {
     if (snippets.length === 0) {

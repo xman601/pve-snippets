@@ -71,6 +71,17 @@
       button:last-of-type {
         margin-bottom: 0;
       }
+      .option-row {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        cursor: pointer;
+        font-size: 13px;
+      }
+      .option-row input[type="checkbox"] {
+        margin: 0;
+        cursor: pointer;
+      }
       .hint {
         font-size: 11px;
         color: var(--pmx-text-muted);
@@ -97,6 +108,13 @@
     <h1>PVE Paste Helper</h1>
     <p>Open a PVE VM console (noVNC) and you&apos;ll see a paste panel in the bottom-right corner.</p>
     <p>Use your normal paste shortcut (<code>Ctrl+V</code> or <code>⌘V</code>) or the panel button to type text into the VM.</p>
+
+    <div class="section">
+      <label class="option-row">
+        <input type="checkbox" id="auto-enter" />
+        <span>Hit Enter after paste</span>
+      </label>
+    </div>
 
     <div class="section">
       <div class="section-title">Snippets</div>

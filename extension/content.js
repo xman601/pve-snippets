@@ -5,6 +5,7 @@
   'use strict';
 
   const SNIPPETS_KEY = 'pmx_snippets_v1';
+  const AUTO_ENTER_KEY = 'pmx_auto_enter';
 
   // ── Theme: 6 colors. Keep in sync with extension/theme.css (popup uses that file). ──
   const THEME = {
@@ -113,9 +114,14 @@
   }
 
   // Send text character by character. Release paste keys and delay first char so noVNC is ready.
-  const FIRST_CHAR_DELAY_MS = 80;
+  const FIRST_CHAR_DELAY_MS = 40;
 
-  function sendText(canvas, text, delay = 50) {
+  function sendEnter(canvas) {
+    canvas.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', code: 'Enter', keyCode: 13, which: 13, bubbles: true, cancelable: true }));
+    canvas.dispatchEvent(new KeyboardEvent('keyup',  { key: 'Enter', code: 'Enter', keyCode: 13, which: 13, bubbles: true, cancelable: true }));
+  }
+
+  function sendText(canvas, text, delay = 20) {
     releasePasteKeys(canvas);
     canvas.focus();
     const normalized = text.replace(/\r\n/g, '\n');
@@ -123,13 +129,17 @@
 
     function sendNext() {
       if (i >= normalized.length) {
+        storageGet(AUTO_ENTER_KEY).then(function (autoEnter) {
+          if (autoEnter) {
+            setTimeout(function () { sendEnter(canvas); }, delay);
+          }
+        });
         showToast('\u2713 Pasted ' + normalized.length + ' characters');
         return;
       }
       const char = normalized[i];
       if (char === '\n' || char === '\r') {
-        canvas.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', code: 'Enter', keyCode: 13, which: 13, bubbles: true, cancelable: true }));
-        canvas.dispatchEvent(new KeyboardEvent('keyup',  { key: 'Enter', code: 'Enter', keyCode: 13, which: 13, bubbles: true, cancelable: true }));
+        sendEnter(canvas);
       } else {
         sendChar(canvas, char);
       }
