@@ -6,167 +6,251 @@
     <style>
       :root {
         color-scheme: dark;
-        --pmx-bg: #141414;
-        --pmx-bg-panel: #1a1a1a;
-        --pmx-border: #2a2a2a;
-        --pmx-text: #fff;
-        --pmx-text-muted: #8a8a8a;
-        --pmx-accent: #f60;
+        --popup-bg: #0d0d0d;
+        --popup-surface: #161616;
+        --popup-surface-hover: #1e1e1e;
+        --popup-border: #2d2d2d;
+        --popup-text: #e8e8e8;
+        --popup-text-muted: #737373;
+        --popup-accent: #ea580c;
+        --popup-accent-hover: #f97316;
+        --popup-radius: 10px;
+        --popup-radius-sm: 6px;
+      }
+      * {
+        box-sizing: border-box;
       }
       body {
         margin: 0;
-        padding: 12px 14px;
+        padding: 0;
         font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
         font-size: 13px;
-        background: var(--pmx-bg);
-        color: var(--pmx-text);
-        width: 280px;
+        background: var(--popup-bg);
+        color: var(--popup-text);
+        width: 300px;
+        min-height: 320px;
       }
-      h1 {
-        margin: 0 0 8px;
-        font-size: 14px;
+
+      .header {
+        padding: 14px 16px 10px;
+        border-bottom: 1px solid var(--popup-border);
+      }
+      .header h1 {
+        margin: 0;
+        font-size: 15px;
         font-weight: 600;
+        letter-spacing: -0.02em;
       }
-      p {
-        margin: 0 0 6px;
+      .header p {
+        margin: 6px 0 0;
+        font-size: 12px;
+        color: var(--popup-text-muted);
         line-height: 1.4;
       }
-      code {
-        font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
-        font-size: 12px;
-        background: var(--pmx-border);
-        padding: 2px 4px;
-        border-radius: 4px;
-      }
-      small {
-        display: block;
-        margin-top: 8px;
+      .header code {
+        font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
         font-size: 11px;
-        color: var(--pmx-text-muted);
+        background: var(--popup-surface);
+        padding: 2px 5px;
+        border-radius: 4px;
+        color: var(--popup-text-muted);
       }
-      .section {
-        margin-top: 14px;
-        padding-top: 12px;
-        border-top: 1px solid var(--pmx-border);
+
+      /* Primary: Paste into page */
+      .paste-card {
+        margin: 12px 16px;
+        padding: 12px;
+        background: var(--popup-surface);
+        border: 1px solid var(--popup-border);
+        border-radius: var(--popup-radius);
       }
-      .section-title {
-        font-size: 12px;
+      .paste-card .label {
+        display: block;
+        font-size: 11px;
         font-weight: 600;
-        color: var(--pmx-text-muted);
+        text-transform: uppercase;
+        letter-spacing: 0.06em;
+        color: var(--popup-text-muted);
         margin-bottom: 8px;
       }
-      button {
+      #popup-paste-text {
         width: 100%;
-        padding: 8px 12px;
-        margin-bottom: 6px;
+        margin: 0 0 10px;
+        padding: 10px 12px;
+        font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
         font-size: 12px;
-        font-family: inherit;
-        background: var(--pmx-bg-panel);
-        color: var(--pmx-text);
-        border: 1px solid var(--pmx-border);
-        border-radius: 8px;
+        line-height: 1.45;
+        background: var(--popup-bg);
+        color: var(--popup-text);
+        border: 1px solid var(--popup-border);
+        border-radius: var(--popup-radius-sm);
+        resize: vertical;
+        min-height: 72px;
+      }
+      #popup-paste-text::placeholder {
+        color: var(--popup-text-muted);
+      }
+      #popup-paste-text:focus {
+        outline: none;
+        border-color: var(--popup-accent);
+      }
+      #popup-send-btn {
+        width: 100%;
+        padding: 10px 14px;
+        font-size: 13px;
+        font-weight: 500;
+        background: var(--popup-accent);
+        color: #fff;
+        border: none;
+        border-radius: var(--popup-radius-sm);
         cursor: pointer;
-        transition: background 0.15s, border-color 0.15s;
+        transition: background 0.15s;
       }
-      button:hover {
-        background: var(--pmx-border);
-        border-color: var(--pmx-accent);
+      #popup-send-btn:hover {
+        background: var(--popup-accent-hover);
       }
-      button:disabled {
-        opacity: 0.5;
-        cursor: not-allowed;
+      #popup-send-btn:active {
+        transform: scale(0.99);
       }
-      button:last-of-type {
-        margin-bottom: 0;
+      #popup-paste-hint {
+        display: block;
+        font-size: 11px;
+        color: var(--popup-text-muted);
+        margin-top: 8px;
+        line-height: 1.35;
+      }
+
+      /* Options */
+      .options {
+        padding: 0 16px 12px;
       }
       .option-row {
         display: flex;
         align-items: center;
-        gap: 8px;
+        gap: 10px;
+        padding: 10px 12px;
+        background: var(--popup-surface);
+        border: 1px solid var(--popup-border);
+        border-radius: var(--popup-radius-sm);
         cursor: pointer;
         font-size: 13px;
+        margin-bottom: 6px;
+      }
+      .option-row:hover {
+        background: var(--popup-surface-hover);
+      }
+      .option-row:last-of-type {
+        margin-bottom: 0;
       }
       .option-row input[type="checkbox"] {
         margin: 0;
         cursor: pointer;
+        accent-color: var(--popup-accent);
       }
-      .popup-textarea {
-        width: 100%;
-        box-sizing: border-box;
-        margin-bottom: 6px;
-        padding: 8px 10px;
-        font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+
+      /* Snippets */
+      .section {
+        padding: 12px 16px;
+        border-top: 1px solid var(--popup-border);
+      }
+      .section-title {
+        font-size: 11px;
+        font-weight: 600;
+        text-transform: uppercase;
+        letter-spacing: 0.06em;
+        color: var(--popup-text-muted);
+        margin-bottom: 8px;
+      }
+      .btn-row {
+        display: flex;
+        gap: 8px;
+      }
+      .btn-row button {
+        flex: 1;
+        padding: 8px 12px;
         font-size: 12px;
-        background: var(--pmx-bg);
-        color: var(--pmx-text);
-        border: 1px solid var(--pmx-border);
-        border-radius: 6px;
-        resize: vertical;
-        min-height: 60px;
+        font-family: inherit;
+        background: var(--popup-surface);
+        color: var(--popup-text);
+        border: 1px solid var(--popup-border);
+        border-radius: var(--popup-radius-sm);
+        cursor: pointer;
+        transition: background 0.15s, border-color 0.15s;
       }
-      .popup-textarea::placeholder {
-        color: var(--pmx-text-muted);
+      .btn-row button:hover {
+        background: var(--popup-surface-hover);
+        border-color: var(--popup-accent);
       }
-      .hint {
+      #export-hint {
         font-size: 11px;
-        color: var(--pmx-text-muted);
-        margin-top: 6px;
+        color: var(--popup-text-muted);
+        margin-top: 8px;
       }
+      input[type="file"] {
+        display: none;
+      }
+
+      /* Footer */
       .popup-footer {
-        display: block;
-        margin-top: 12px;
-        padding-top: 10px;
-        border-top: 1px solid var(--pmx-border);
+        margin-top: auto;
+        padding: 10px 16px 14px;
+        border-top: 1px solid var(--popup-border);
         font-size: 11px;
-        color: var(--pmx-text-muted);
+        color: var(--popup-text-muted);
+        line-height: 1.5;
       }
       .popup-footer a {
-        color: var(--pmx-accent);
+        color: var(--popup-accent);
         text-decoration: none;
       }
       .popup-footer a:hover {
         text-decoration: underline;
       }
+      #version-label {
+        display: block;
+        margin-bottom: 4px;
+      }
     </style>
   </head>
   <body>
-    <h1>PVE Paste Helper</h1>
-    <p>Open a PVE VM console (noVNC) and you&apos;ll see a paste panel in the bottom-right corner.</p>
-    <p>Use your normal paste shortcut (<code>Ctrl+V</code> or <code>⌘V</code>) or the panel button to type text into the VM.</p>
+    <header class="header">
+      <h1>PVE Paste Helper</h1>
+      <p>Paste into noVNC or any page. On PVE consoles use <code>Ctrl+V</code> / <code>⌘V</code> or the panel.</p>
+    </header>
 
-    <div class="section">
-      <div class="section-title">Paste into page</div>
-      <textarea id="popup-paste-text" class="popup-textarea" placeholder="Paste or type text here, then paste into the active tab…" rows="3"></textarea>
+    <main class="paste-card">
+      <span class="label">Paste into page</span>
+      <textarea id="popup-paste-text" placeholder="Type or paste text, then send to the active tab…" rows="3"></textarea>
       <button type="button" id="popup-send-btn">Paste into page</button>
-      <p class="hint" id="popup-paste-hint">Pastes into the active tab (e.g. noVNC console or any focused text field).</p>
-    </div>
+      <span class="hint" id="popup-paste-hint">Sends to the active tab (noVNC or focused field).</span>
+    </main>
 
-    <div class="section">
+    <div class="options">
       <label class="option-row">
         <input type="checkbox" id="auto-enter" />
-        <span>Hit Enter after paste</span>
+        <span>Auto-hit Enter after paste</span>
       </label>
     </div>
 
     <div class="section">
       <div class="section-title">Snippets</div>
+      <div class="btn-row">
+        <button type="button" id="export-btn">Export</button>
+        <button type="button" id="import-btn">Import</button>
+      </div>
       <input type="file" id="import-file" accept=".json,application/json" hidden>
-      <button type="button" id="export-btn">Export snippets</button>
-      <button type="button" id="import-btn">Import snippets</button>
-      <p class="hint" id="export-hint">Download all saved snippets as a JSON file.</p>
+      <p class="hint" id="export-hint">Download or import saved snippets.</p>
     </div>
-
-    <small>Snippets you save stay on this device only. No data is sent to any server.</small>
 
     <footer class="popup-footer">
       <span id="version-label"></span>
-      <br>
-      <a href="https://github.com/xman601/pve-snippets" target="_blank" rel="noopener noreferrer">Source on GitHub</a>
+      <a href="https://github.com/xman601/pve-snippets" target="_blank" rel="noopener noreferrer">GitHub</a>
       &middot;
-      <a href="https://github.com/xman601/pve-snippets/blob/main/docs/PRIVACY_POLICY_TEMPLATE.md" target="_blank" rel="noopener noreferrer">Privacy policy</a>
+      <a href="https://github.com/xman601/pve-snippets/blob/main/docs/PRIVACY_POLICY_TEMPLATE.md" target="_blank" rel="noopener noreferrer">Privacy</a>
+      <br>
+      <small>Data stays on this device.</small>
     </footer>
 
     <script src="popup.js"></script>
   </body>
 </html>
-
