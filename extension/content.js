@@ -7,14 +7,13 @@
   const SNIPPETS_KEY = 'pmx_snippets_v1';
   const AUTO_ENTER_KEY = 'pmx_auto_enter';
 
-  // ── Theme: 6 colors. Keep in sync with extension/theme.css (popup uses that file). ──
   const THEME = {
-    bg: '#141414',           // --pmx-bg
-    bgPanel: '#1a1a1a',     // --pmx-bg-panel
-    border: '#2a2a2a',      // --pmx-border
-    text: '#fff',           // --pmx-text
-    textMuted: '#8a8a8a',   // --pmx-text-muted
-    accent: '#f60',         // --pmx-accent
+    bg: '#141414',
+    bgPanel: '#1a1a1a',
+    border: '#2a2a2a',
+    text: '#fff',
+    textMuted: '#8a8a8a',
+    accent: '#f60',
   };
 
   // Only activate on pages that look like a PVE (Proxmox VE) noVNC console.
@@ -1066,6 +1065,70 @@
         pasteClipboard(canvas);
       }
     }, true);
+  }
+
+  // Insert text into a focused input, textarea, or contenteditable (for popup paste on any page).
+  function pasteIntoFocusedElement(text) {
+    const el = document.activeElement;
+    if (!el || !(el instanceof HTMLElement)) return false;
+    const tag = el.tagName && el.tagName.toLowerCase();
+    if (tag === 'input' || tag === 'textarea') {
+      const start = el.selectionStart != null ? el.selectionStart : el.value.length;
+      const end = el.selectionEnd != null ? el.selectionEnd : el.value.length;
+      const before = (el.value || '').slice(0, start);
+      const after = (el.value || '').slice(end);
+      el.value = before + text + after;
+      el.selectionStart = el.selectionEnd = start + text.length;
+      el.dispatchEvent(new Event('input', { bubbles: true }));
+      return true;
+    }
+    if (el.isContentEditable) {
+      document.execCommand('insertText', false, text);
+      return true;
+    }
+    return false;
+  }
+
+  // Handle messages from popup: paste text into the page (canvas for noVNC, or focused input/textarea).
+  if (typeof chrome !== 'undefined' && chrome.runtime && chrome.runtime.onMessage) {
+    chrome.runtime.onMessage.addListener(function (msg, _sender, sendResponse) {
+      if (msg.action !== 'paste' && msg.action !== 'sendText') return;
+      const text = msg.action === 'sendText' && typeof msg.text === 'string' ? msg.text : null;
+      if (msg.action === 'sendText' && !text) {
+        sendResponse({ ok: false, error: 'No text to paste.' });
+        return false;
+      }
+
+      function tryHandle() {
+        const canvas = document.querySelector('canvas');
+        if (canvas && msg.action === 'sendText') {
+          sendText(canvas, text);
+          sendResponse({ ok: true });
+          return true;
+        }
+        if (canvas && msg.action === 'paste') {
+          pasteClipboard(canvas).then(function () {
+            sendResponse({ ok: true });
+          }).catch(function () {
+            sendResponse({ ok: false, error: 'Clipboard access denied or empty.' });
+          });
+          return true;
+        }
+        if (msg.action === 'sendText' && pasteIntoFocusedElement(text)) {
+          sendResponse({ ok: true });
+          return true;
+        }
+        return false;
+      }
+
+      if (tryHandle()) return false;
+      // Canvas may appear after a short delay (noVNC); give the frame one retry
+      setTimeout(function () {
+        if (tryHandle()) return;
+        sendResponse({ ok: false, error: 'No target to paste into. Focus a noVNC console or a text field in the tab.' });
+      }, 150);
+      return true;
+    });
   }
 
   // Initialize

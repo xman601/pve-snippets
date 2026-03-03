@@ -3,8 +3,16 @@
   <head>
     <meta charset="utf-8">
     <title>PVE Paste Helper</title>
-    <link rel="stylesheet" href="theme.css">
     <style>
+      :root {
+        color-scheme: dark;
+        --pmx-bg: #141414;
+        --pmx-bg-panel: #1a1a1a;
+        --pmx-border: #2a2a2a;
+        --pmx-text: #fff;
+        --pmx-text-muted: #8a8a8a;
+        --pmx-accent: #f60;
+      }
       body {
         margin: 0;
         padding: 12px 14px;
@@ -82,6 +90,23 @@
         margin: 0;
         cursor: pointer;
       }
+      .popup-textarea {
+        width: 100%;
+        box-sizing: border-box;
+        margin-bottom: 6px;
+        padding: 8px 10px;
+        font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+        font-size: 12px;
+        background: var(--pmx-bg);
+        color: var(--pmx-text);
+        border: 1px solid var(--pmx-border);
+        border-radius: 6px;
+        resize: vertical;
+        min-height: 60px;
+      }
+      .popup-textarea::placeholder {
+        color: var(--pmx-text-muted);
+      }
       .hint {
         font-size: 11px;
         color: var(--pmx-text-muted);
@@ -108,6 +133,13 @@
     <h1>PVE Paste Helper</h1>
     <p>Open a PVE VM console (noVNC) and you&apos;ll see a paste panel in the bottom-right corner.</p>
     <p>Use your normal paste shortcut (<code>Ctrl+V</code> or <code>⌘V</code>) or the panel button to type text into the VM.</p>
+
+    <div class="section">
+      <div class="section-title">Paste into page</div>
+      <textarea id="popup-paste-text" class="popup-textarea" placeholder="Paste or type text here, then paste into the active tab…" rows="3"></textarea>
+      <button type="button" id="popup-send-btn">Paste into page</button>
+      <p class="hint" id="popup-paste-hint">Pastes into the active tab (e.g. noVNC console or any focused text field).</p>
+    </div>
 
     <div class="section">
       <label class="option-row">
