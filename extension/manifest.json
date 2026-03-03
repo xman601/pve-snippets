@@ -1,9 +1,9 @@
 {
   "manifest_version": 3,
   "name": "PVE Paste Helper",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "description": "Paste text and saved snippets into PVE (Proxmox VE) noVNC VM consoles using your normal paste shortcut or a floating panel.",
-  "permissions": ["clipboardRead", "storage"],
+  "permissions": ["clipboardRead", "storage", "activeTab", "tabs"],
   "host_permissions": ["<all_urls>"],
   "content_scripts": [
     {
