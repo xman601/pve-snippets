@@ -40,7 +40,19 @@ This extension does not load or execute any remote code. All JavaScript and HTML
 
 ---
 
-## 4. storage
+## 4. tabs
+
+**Single purpose:** Get the active tab’s ID when the user clicks “Paste into page” in the popup, so pasted text is sent only to that tab.
+
+**Copy into the tabs justification field:**
+
+```
+The extension uses the tabs permission only when the user clicks "Paste into page" in the extension popup. It calls chrome.tabs.query to get the currently active tab's ID, then sends the user's pasted text to that tab (e.g. noVNC console or any focused text field). The extension does not read tab URLs, titles, or page content; it only needs the tab ID to deliver the pasted text to the correct tab.
+```
+
+---
+
+## 5. storage
 
 **Single purpose:** Store the user’s saved snippets locally so they can reuse them from the paste panel.
 

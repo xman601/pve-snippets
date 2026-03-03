@@ -5,11 +5,9 @@
 The store **requires** a public URL to your privacy policy.
 
 - **Option A:** Use the GitHub raw URL (replace `main` with your default branch if different):
-  - `https://raw.githubusercontent.com/xman601/pve-snippets/main/docs/PRIVACY_POLICY_TEMPLATE.md`
-  - Or the readable blob: `https://github.com/xman601/pve-snippets/blob/main/docs/PRIVACY_POLICY_TEMPLATE.md`
+  - `https://raw.githubusercontent.com/xman601/pve-snippets/main/docs/PRIVACY_POLICY.md`
+  - Or the readable blob: `https://github.com/xman601/pve-snippets/blob/main/docs/PRIVACY_POLICY.md`
 - **Option B:** GitHub Pages, your own site, or a Gist — paste that URL in the CWS “Privacy practices” → “Privacy policy” field.
-
-Rename or copy `docs/PRIVACY_POLICY_TEMPLATE.md` to something like `PRIVACY_POLICY.md` first if you prefer that URL.
 
 ---
 
@@ -48,7 +46,7 @@ python scripts/build-store-zip.py
 
 ## 5. Optional but useful
 
-- **Version:** 1.0.0 is fine for first publish. Bump and rebuild the zip for each store update.
+- **Version:** Bump version in manifest (e.g. 1.0.1) and rebuild the zip for each store update.
 - **README** — Push the latest README so the repo looks good for users who click “Source” in the popup.
 - **License** — You have MIT in the repo; the store may show it if you link the repo.
 

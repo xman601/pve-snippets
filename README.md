@@ -4,8 +4,10 @@ A Chrome/Edge browser extension that adds clipboard paste support to the PVE (Pr
 
 ## Features
 
-- **Floating Paste Button** — always-visible button in the bottom-right corner of the console
-- **Keyboard Shortcut** — native paste (`Ctrl+V` on Windows/Linux, `⌘V` on macOS) pastes into the VM when the noVNC console is focused
+- **Floating Paste Button** — always-visible button in the bottom-right corner of the noVNC console (on PVE)
+- **Keyboard Shortcut** — native paste (`Ctrl+V` on Windows/Linux, `⌘V` on macOS) pastes into the VM when the console is focused
+- **Paste from Popup** — open the extension popup, type or paste text, and click “Paste into page” to send it to the active tab (works with any noVNC or focused text field)
+- **Hit Enter after paste** — optional toggle in the popup to send Enter after each paste
 - **Fallback Dialog** — if clipboard permission is denied, a text prompt appears so you can manually paste
 - **Visual Feedback** — toast notifications show paste progress and character count
 - **Saved Snippets** — save and reuse common paste blocks from the paste panel
@@ -48,9 +50,9 @@ All data stays on your device. Clipboard content is used only when you paste and
 
 **Clipboard permission denied:** The browser may block clipboard access. Click the Paste button and a fallback dialog will appear where you can manually paste your text.
 
-**Characters getting dropped:** The VM might be processing input slower than the 30ms delay. If this happens, paste smaller chunks at a time.
+**Characters getting dropped:** The VM might be processing input slower than the typing delay. If this happens, paste smaller chunks at a time.
 
-**Button not appearing:** Make sure you're on the noVNC console page (the URL typically contains `/novnc` or `/vncviewer`). Refresh the page after installing the extension.
+**Button not appearing (PVE):** The floating panel and Ctrl+V paste only appear on PVE noVNC console pages (URL typically contains `/novnc` or similar). Refresh after installing. For other noVNC pages, use the extension popup to paste into the page.
 
 ## Project structure
 
