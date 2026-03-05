@@ -266,11 +266,6 @@
     const CHEV_R    = `<svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"/></svg>`;
     const PENCIL    = `<svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>`;
 
-    function parseSvg(svgString) {
-      const doc = new DOMParser().parseFromString(svgString, 'image/svg+xml');
-      return doc.documentElement;
-    }
-
     // ── CSS (all colors from THEME at top of file) ──
     const CSS = `
       #pmx-wrap {
@@ -600,19 +595,17 @@
     const pasteTab = document.createElement('button');
     pasteTab.type = 'button';
     pasteTab.className = 'pmx-tab active';
-    pasteTab.appendChild(parseSvg(CLIP_SM));
-    pasteTab.appendChild(document.createTextNode(' Paste'));
+    pasteTab.innerHTML = CLIP_SM + ' Paste';
 
     const snipsTab = document.createElement('button');
     snipsTab.type = 'button';
     snipsTab.className = 'pmx-tab';
-    snipsTab.appendChild(parseSvg(LIST_SM));
-    snipsTab.appendChild(document.createTextNode(' Snippets'));
+    snipsTab.innerHTML = LIST_SM + ' Snippets';
 
     const hdrClose = document.createElement('span');
     hdrClose.className = 'pmx-hdr-close';
     hdrClose.title = 'Collapse';
-    hdrClose.appendChild(parseSvg(CHEV_DOWN));
+    hdrClose.innerHTML = CHEV_DOWN;
 
     tabs.appendChild(pasteTab);
     tabs.appendChild(snipsTab);
@@ -646,8 +639,7 @@
     const sendBtn = document.createElement('button');
     sendBtn.type = 'button';
     sendBtn.id = 'pmx-send';
-    sendBtn.appendChild(document.createTextNode('Paste into VM '));
-    sendBtn.appendChild(parseSvg(CHEV_R));
+    sendBtn.innerHTML = 'Paste into VM ' + CHEV_R;
 
     footerBtns.appendChild(saveSnipBtn);
     footerBtns.appendChild(sendBtn);
@@ -733,10 +725,7 @@
     snipsFooter.className = 'pmx-snip-footer';
     const snipsFooterInner = document.createElement('div');
     snipsFooterInner.className = 'pmx-snip-footer-inner';
-    const snipHintSpan = document.createElement('span');
-    snipHintSpan.className = 'pmx-snip-hint';
-    snipHintSpan.textContent = 'Drag to reorder snippets';
-    snipsFooterInner.appendChild(snipHintSpan);
+    snipsFooterInner.innerHTML = '<span class="pmx-snip-hint">Drag to reorder snippets</span>';
     const newSnipBtn = document.createElement('button');
     newSnipBtn.type = 'button';
     newSnipBtn.className = 'pmx-snip-new-btn';
@@ -887,7 +876,7 @@
     // ── Render snippets list ──
     async function renderSnippets() {
       const snippets = await getSnippets();
-      while (snipsScroll.firstChild) snipsScroll.removeChild(snipsScroll.firstChild);
+      snipsScroll.innerHTML = '';
 
       if (snippets.length === 0) {
         const empty = document.createElement('div');
@@ -906,7 +895,7 @@
 
         const dragHandle = document.createElement('div');
         dragHandle.className = 'pmx-snip-drag-handle';
-        dragHandle.appendChild(parseSvg(GRIP));
+        dragHandle.innerHTML = GRIP;
         dragHandle.title = 'Drag to reorder';
         dragHandle.draggable = true;
         dragHandle.addEventListener('dragstart', (e) => {
@@ -969,7 +958,7 @@
         editEl.type = 'button';
         editEl.className = 'pmx-snip-edit';
         editEl.title = 'Edit';
-        editEl.appendChild(parseSvg(PENCIL));
+        editEl.innerHTML = PENCIL;
         editEl.addEventListener('click', (e) => {
           e.stopPropagation();
           if (editingId === s.id) {
@@ -1027,12 +1016,12 @@
     const pillIcon = document.createElement('div');
     pillIcon.className = 'pmx-pill-icon';
     pillIcon.title = 'Paste clipboard into VM (' + shortcutLabel + ')';
-    pillIcon.appendChild(parseSvg(CLIP_LG));
+    pillIcon.innerHTML = CLIP_LG;
     pillIcon.addEventListener('click', (e) => { e.stopPropagation(); pasteClipboard(canvas); });
 
     const pillChev = document.createElement('div');
     pillChev.className = 'pmx-pill-chev';
-    pillChev.appendChild(parseSvg(CHEV_UP));
+    pillChev.innerHTML = CHEV_UP;
     pillChev.addEventListener('click', (e) => { e.stopPropagation(); openPanel(); });
 
     btnRow.appendChild(pillIcon);

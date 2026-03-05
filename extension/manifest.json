@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "PVE Snippets",
-  "version": "1.2.0",
+  "version": "1.2.1",
   "description": "Paste into PVE noVNC consoles or any page. Use Ctrl+V, the floating panel, or the popup to type into VMs or focused text fields.",
   "permissions": ["clipboardRead", "storage", "tabs"],
   "host_permissions": ["<all_urls>"],
@@ -29,6 +29,11 @@
   },
   "action": {
     "default_title": "PVE Snippets",
+    "default_icon": {
+      "16": "icons/icon16.png",
+      "48": "icons/icon48.png",
+      "128": "icons/icon128.png"
+    },
     "default_popup": "popup.html"
   }
 }
