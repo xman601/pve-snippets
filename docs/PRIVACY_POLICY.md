@@ -1,8 +1,8 @@
-# PVE Paste Helper — Privacy Policy
+# PVE Snippets — Privacy Policy
 
 **Last updated:** February 2026
 
-This privacy policy describes how the **PVE Paste Helper** browser extension (“the extension”) handles your data. The extension is designed to run entirely in your browser and to keep your data on your device.
+This privacy policy describes how the **PVE Snippets** browser extension (“the extension”) handles your data. The extension is designed to run entirely in your browser and to keep your data on your device.
 
 For Chrome Web Store submission, this policy must be hosted at a public URL (e.g. GitHub Pages or the repo’s raw/docs file) and that URL entered in the store’s privacy policy field.
 

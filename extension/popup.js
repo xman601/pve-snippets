@@ -46,7 +46,7 @@
         exportHint.textContent = 'No snippets to export.';
         return;
       }
-      const filename = 'pve-paste-helper-snippets-' + new Date().toISOString().slice(0, 10) + '.json';
+      const filename = 'pve-snippets-export-' + new Date().toISOString().slice(0, 10) + '.json';
       downloadJson(snippets, filename);
       exportHint.textContent = 'Exported ' + snippets.length + ' snippet(s).';
     });

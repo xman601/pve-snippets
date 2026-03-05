@@ -1,4 +1,4 @@
-// PVE Paste Helper - Content Script
+// PVE Snippets - Content Script
 // Injects paste support into PVE noVNC console
 
 (function () {
@@ -265,6 +265,11 @@
     const CHEV_UP   = `<svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="18 15 12 9 6 15"/></svg>`;
     const CHEV_R    = `<svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"/></svg>`;
     const PENCIL    = `<svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>`;
+
+    function parseSvg(svgString) {
+      const doc = new DOMParser().parseFromString(svgString, 'image/svg+xml');
+      return doc.documentElement;
+    }
 
     // ── CSS (all colors from THEME at top of file) ──
     const CSS = `
@@ -595,17 +600,19 @@
     const pasteTab = document.createElement('button');
     pasteTab.type = 'button';
     pasteTab.className = 'pmx-tab active';
-    pasteTab.innerHTML = CLIP_SM + ' Paste';
+    pasteTab.appendChild(parseSvg(CLIP_SM));
+    pasteTab.appendChild(document.createTextNode(' Paste'));
 
     const snipsTab = document.createElement('button');
     snipsTab.type = 'button';
     snipsTab.className = 'pmx-tab';
-    snipsTab.innerHTML = LIST_SM + ' Snippets';
+    snipsTab.appendChild(parseSvg(LIST_SM));
+    snipsTab.appendChild(document.createTextNode(' Snippets'));
 
     const hdrClose = document.createElement('span');
     hdrClose.className = 'pmx-hdr-close';
     hdrClose.title = 'Collapse';
-    hdrClose.innerHTML = CHEV_DOWN;
+    hdrClose.appendChild(parseSvg(CHEV_DOWN));
 
     tabs.appendChild(pasteTab);
     tabs.appendChild(snipsTab);
@@ -639,7 +646,8 @@
     const sendBtn = document.createElement('button');
     sendBtn.type = 'button';
     sendBtn.id = 'pmx-send';
-    sendBtn.innerHTML = 'Paste into VM ' + CHEV_R;
+    sendBtn.appendChild(document.createTextNode('Paste into VM '));
+    sendBtn.appendChild(parseSvg(CHEV_R));
 
     footerBtns.appendChild(saveSnipBtn);
     footerBtns.appendChild(sendBtn);
@@ -725,7 +733,10 @@
     snipsFooter.className = 'pmx-snip-footer';
     const snipsFooterInner = document.createElement('div');
     snipsFooterInner.className = 'pmx-snip-footer-inner';
-    snipsFooterInner.innerHTML = '<span class="pmx-snip-hint">Drag to reorder snippets</span>';
+    const snipHintSpan = document.createElement('span');
+    snipHintSpan.className = 'pmx-snip-hint';
+    snipHintSpan.textContent = 'Drag to reorder snippets';
+    snipsFooterInner.appendChild(snipHintSpan);
     const newSnipBtn = document.createElement('button');
     newSnipBtn.type = 'button';
     newSnipBtn.className = 'pmx-snip-new-btn';
@@ -748,7 +759,7 @@
     const popX = document.createElement('button');
     popX.type = 'button';
     popX.className = 'pmx-pop-x';
-    popX.innerHTML = '\u2715';
+    popX.textContent = '\u2715';
     popHdr.appendChild(popTitle);
     popHdr.appendChild(popX);
 
@@ -876,7 +887,7 @@
     // ── Render snippets list ──
     async function renderSnippets() {
       const snippets = await getSnippets();
-      snipsScroll.innerHTML = '';
+      while (snipsScroll.firstChild) snipsScroll.removeChild(snipsScroll.firstChild);
 
       if (snippets.length === 0) {
         const empty = document.createElement('div');
@@ -895,7 +906,7 @@
 
         const dragHandle = document.createElement('div');
         dragHandle.className = 'pmx-snip-drag-handle';
-        dragHandle.innerHTML = GRIP;
+        dragHandle.appendChild(parseSvg(GRIP));
         dragHandle.title = 'Drag to reorder';
         dragHandle.draggable = true;
         dragHandle.addEventListener('dragstart', (e) => {
@@ -958,7 +969,7 @@
         editEl.type = 'button';
         editEl.className = 'pmx-snip-edit';
         editEl.title = 'Edit';
-        editEl.innerHTML = PENCIL;
+        editEl.appendChild(parseSvg(PENCIL));
         editEl.addEventListener('click', (e) => {
           e.stopPropagation();
           if (editingId === s.id) {
@@ -972,7 +983,7 @@
         delEl.type = 'button';
         delEl.className = 'pmx-snip-del';
         delEl.title = 'Delete';
-        delEl.innerHTML = '\u2715';
+        delEl.textContent = '\u2715';
         delEl.addEventListener('click', async (e) => {
           e.stopPropagation();
           if (editingId === s.id) closePopover();
@@ -1016,12 +1027,12 @@
     const pillIcon = document.createElement('div');
     pillIcon.className = 'pmx-pill-icon';
     pillIcon.title = 'Paste clipboard into VM (' + shortcutLabel + ')';
-    pillIcon.innerHTML = CLIP_LG;
+    pillIcon.appendChild(parseSvg(CLIP_LG));
     pillIcon.addEventListener('click', (e) => { e.stopPropagation(); pasteClipboard(canvas); });
 
     const pillChev = document.createElement('div');
     pillChev.className = 'pmx-pill-chev';
-    pillChev.innerHTML = CHEV_UP;
+    pillChev.appendChild(parseSvg(CHEV_UP));
     pillChev.addEventListener('click', (e) => { e.stopPropagation(); openPanel(); });
 
     btnRow.appendChild(pillIcon);
@@ -1137,7 +1148,7 @@
     waitForCanvas((canvas) => {
       injectButton(canvas);
       injectHotkey(canvas);
-      console.log('[PVE Paste Helper] Ready. Use ' + (/Mac|iPod|iPhone|iPad/.test(navigator.platform) ? '\u2318V' : 'Ctrl+V') + ' or the paste button.');
+      console.log('[PVE Snippets] Ready. Use ' + (/Mac|iPod|iPhone|iPad/.test(navigator.platform) ? '\u2318V' : 'Ctrl+V') + ' or the paste button.');
     });
   }
 

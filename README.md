@@ -1,4 +1,4 @@
-# PVE Paste Helper
+# PVE Snippets
 
 A Chrome, Edge, and Firefox browser extension that adds clipboard paste support to the PVE (Proxmox VE) noVNC console.
 
@@ -34,7 +34,7 @@ For Firefox (development): open `about:debugging`, click **This Firefox**, click
 4. The text will be typed into the VM character by character
 5. (Optional) Open the panel, choose a snippet from **Snippets…**, or click **Save** to store what’s in the textarea
 
-**Export & import snippets:** Click the PVE Paste Helper icon in the browser toolbar (top-right) to open the extension popup. There you can **Export snippets** (download all as JSON) or **Import snippets** (load from a JSON file). Snippets stay on your device; export/import is for backup or moving to another browser.
+**Export & import snippets:** Click the PVE Snippets icon in the browser toolbar (top-right) to open the extension popup. There you can **Export snippets** (download all as JSON) or **Import snippets** (load from a JSON file). Snippets stay on your device; export/import is for backup or moving to another browser.
 
 ## Privacy
 

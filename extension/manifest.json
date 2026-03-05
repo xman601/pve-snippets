@@ -1,14 +1,17 @@
 {
   "manifest_version": 3,
-  "name": "PVE Paste Helper",
+  "name": "PVE Snippets",
   "version": "1.1.0",
   "description": "Paste into PVE noVNC consoles or any page. Use Ctrl+V, the floating panel, or the popup to type into VMs or focused text fields.",
   "permissions": ["clipboardRead", "storage", "tabs"],
   "host_permissions": ["<all_urls>"],
   "browser_specific_settings": {
     "gecko": {
-      "id": "pve-paste-helper@local.dev",
-      "strict_min_version": "109.0"
+      "id": "pve-snippets@local.dev",
+      "strict_min_version": "109.0",
+      "data_collection_permissions": {
+        "required": ["none"]
+      }
     }
   },
   "content_scripts": [
@@ -25,7 +28,7 @@
     "128": "icons/icon128.png"
   },
   "action": {
-    "default_title": "PVE Paste Helper",
+    "default_title": "PVE Snippets",
     "default_popup": "popup.html"
   }
 }
