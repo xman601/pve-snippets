@@ -2,6 +2,8 @@
 
 A Chrome, Edge, and Firefox browser extension that adds clipboard paste support to the PVE (Proxmox VE) noVNC console.
 
+**Install:** [Chrome Web Store](https://chromewebstore.google.com/detail/jampbpobgkkfoeiogobjlbhldkjgcfkg) · [Firefox Add-ons](https://addons.mozilla.org/en-US/firefox/addon/pve-snippets/)
+
 ## Features
 
 - **Floating Paste Button** — always-visible button in the bottom-right corner of the noVNC console (on PVE)
@@ -14,7 +16,7 @@ A Chrome, Edge, and Firefox browser extension that adds clipboard paste support 
 
 ## Installation (Developer Mode)
 
-Since this isn't on the Chrome Web Store, you load it as an unpacked extension:
+To install from source or test changes, load the extension unpacked:
 
 1. Open Chrome and go to `chrome://extensions/`
 2. Enable **Developer mode** (toggle in the top-right corner)
