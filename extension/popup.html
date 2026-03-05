@@ -186,9 +186,6 @@
         color: var(--popup-text-muted);
         margin-top: 8px;
       }
-      input[type="file"] {
-        display: none;
-      }
 
       /* Footer */
       .popup-footer {
@@ -238,8 +235,7 @@
         <button type="button" id="export-btn">Export</button>
         <button type="button" id="import-btn">Import</button>
       </div>
-      <input type="file" id="import-file" accept=".json,application/json" hidden>
-      <p class="hint" id="export-hint">Download or import saved snippets.</p>
+      <p class="hint" id="export-hint">Download or import saved snippets. Import opens in a new tab.</p>
     </div>
 
     <footer class="popup-footer">

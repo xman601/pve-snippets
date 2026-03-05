@@ -1,0 +1,52 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <title>Import snippets – PVE Paste Helper</title>
+    <style>
+      :root {
+        color-scheme: dark;
+        --bg: #0d0d0d;
+        --surface: #161616;
+        --border: #2d2d2d;
+        --text: #e8e8e8;
+        --text-muted: #737373;
+        --accent: #ea580c;
+      }
+      * { box-sizing: border-box; }
+      body {
+        margin: 0;
+        padding: 24px;
+        font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+        font-size: 14px;
+        background: var(--bg);
+        color: var(--text);
+        max-width: 420px;
+      }
+      h1 { font-size: 18px; margin: 0 0 8px; }
+      p { margin: 0 0 16px; color: var(--text-muted); font-size: 13px; line-height: 1.45; }
+      label {
+        display: inline-block;
+        padding: 10px 16px;
+        background: var(--accent);
+        color: #fff;
+        border-radius: 6px;
+        cursor: pointer;
+        font-weight: 500;
+      }
+      label:hover { opacity: 0.95; }
+      input[type="file"] { display: none; }
+      #status { margin-top: 16px; font-size: 13px; min-height: 1.5em; }
+      #status.success { color: #22c55e; }
+      #status.error { color: var(--accent); }
+    </style>
+  </head>
+  <body>
+    <h1>Import snippets</h1>
+    <p>Choose a JSON file previously exported from PVE Paste Helper. Snippets will be merged with existing ones (max 50 kept).</p>
+    <label for="file">Choose JSON file…</label>
+    <input type="file" id="file" accept=".json,application/json">
+    <div id="status"></div>
+    <script src="import.js"></script>
+  </body>
+</html>

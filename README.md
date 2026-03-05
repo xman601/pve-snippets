@@ -1,6 +1,6 @@
 # PVE Paste Helper
 
-A Chrome/Edge browser extension that adds clipboard paste support to the PVE (Proxmox VE) noVNC console.
+A Chrome, Edge, and Firefox browser extension that adds clipboard paste support to the PVE (Proxmox VE) noVNC console.
 
 ## Features
 
@@ -23,6 +23,8 @@ Since this isn't on the Chrome Web Store, you load it as an unpacked extension:
 5. The extension is now active
 
 For Edge: go to `edge://extensions/` and follow the same steps.
+
+For Firefox (development): open `about:debugging`, click **This Firefox**, click **Load Temporary Add-on…**, then select the **`extension`** folder or the `manifest.json` file inside it. The add-on will work until you restart Firefox; reload it from the same page after code changes.
 
 ## Usage
 
@@ -57,7 +59,7 @@ All data stays on your device. Clipboard content is used only when you paste and
 ## Project structure
 
 ```
-extension/       # Load unpacked from here; this is what gets zipped for the store
+extension/       # Load unpacked from here (Chrome/Edge/Firefox); same folder for store zip
   manifest.json, content.js, popup.html, popup.js, icons/
 scripts/         # Build scripts
   build-icons.py, build-store-zip.py, requirements-icons.txt
@@ -65,7 +67,7 @@ assets/          # Source assets (e.g. icon.svg)
 docs/            # Additional documentation
 ```
 
-**Development:** After changing `assets/icon.svg`, run `python scripts/build-icons.py` (install deps: `pip install -r scripts/requirements-icons.txt`). To build the store zip: `python scripts/build-store-zip.py`.
+**Development:** The same `extension/` folder works for Chrome, Edge, and Firefox. After changing `assets/icon.svg`, run `python scripts/build-icons.py` (install deps: `pip install -r scripts/requirements-icons.txt`). To build the store zip: `python scripts/build-store-zip.py`.
 
 ## License
 
