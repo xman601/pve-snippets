@@ -9,7 +9,6 @@
   const exportBtn = document.getElementById('export-btn');
   const exportHint = document.getElementById('export-hint');
   const importBtn = document.getElementById('import-btn');
-  const importFile = document.getElementById('import-file');
   const autoEnterCheckbox = document.getElementById('auto-enter');
   const popupSendBtn = document.getElementById('popup-send-btn');
   const popupPasteText = document.getElementById('popup-paste-text');
@@ -47,90 +46,22 @@
         exportHint.textContent = 'No snippets to export.';
         return;
       }
-      const filename = 'pve-paste-helper-snippets-' + new Date().toISOString().slice(0, 10) + '.json';
+      const filename = 'pve-snippets-export-' + new Date().toISOString().slice(0, 10) + '.json';
       downloadJson(snippets, filename);
       exportHint.textContent = 'Exported ' + snippets.length + ' snippet(s).';
     });
   });
 
-  function setSnippets(snippets) {
-    return new Promise(function (resolve, reject) {
-      try {
-        if (typeof chrome !== 'undefined' && chrome.storage && chrome.storage.local) {
-          const obj = {};
-          obj[SNIPPETS_KEY] = snippets;
-          chrome.storage.local.set(obj, resolve);
-          return;
-        }
-      } catch (e) {
-        reject(e);
-        return;
-      }
-      resolve();
-    });
-  }
-
-  function normalizeSnippet(item) {
-    const name = typeof item.name === 'string' ? item.name.trim() : '';
-    const text = typeof item.text === 'string' ? item.text : '';
-    if (!name && !text) return null;
-    const now = Date.now();
-    return {
-      id: typeof item.id === 'string' && item.id ? item.id : 's_' + now + '_' + Math.random().toString(16).slice(2),
-      name: name || 'Imported',
-      text: text,
-      updatedAt: typeof item.updatedAt === 'number' ? item.updatedAt : now
-    };
-  }
-
+  // Open import in a tab so the file picker works when the popup would close (e.g. Firefox).
   importBtn.addEventListener('click', function () {
-    importFile.click();
-  });
-
-  importFile.addEventListener('change', function () {
-    const file = importFile.files[0];
-    importFile.value = '';
-    if (!file) return;
-
-    const reader = new FileReader();
-    reader.onload = function () {
-      let list;
-      try {
-        const data = JSON.parse(reader.result);
-        list = Array.isArray(data) ? data : (data && Array.isArray(data.snippets) ? data.snippets : null);
-      } catch (_) {
-        exportHint.textContent = 'Import failed: invalid JSON.';
-        return;
-      }
-      if (!list || list.length === 0) {
-        exportHint.textContent = 'Import failed: no snippets in file.';
-        return;
-      }
-
-      const normalized = list.map(normalizeSnippet).filter(Boolean);
-      if (normalized.length === 0) {
-        exportHint.textContent = 'Import failed: no valid snippets.';
-        return;
-      }
-
-      getSnippets().then(function (existing) {
-        const byId = {};
-        existing.forEach(function (s) { byId[s.id] = s; });
-        normalized.forEach(function (s) { byId[s.id] = s; });
-        const merged = Object.keys(byId).map(function (id) { return byId[id]; });
-        merged.sort(function (a, b) { return (b.updatedAt || 0) - (a.updatedAt || 0); });
-        const capped = merged.slice(0, MAX_SNIPPETS);
-
-        setSnippets(capped).then(function () {
-          exportHint.textContent = 'Imported ' + normalized.length + ' snippet(s). Total: ' + capped.length + '.';
-          exportBtn.disabled = false;
-        });
-      });
-    };
-    reader.onerror = function () {
-      exportHint.textContent = 'Import failed: could not read file.';
-    };
-    reader.readAsText(file, 'utf-8');
+    const api = typeof chrome !== 'undefined' && chrome.runtime && chrome.tabs
+      ? chrome
+      : typeof browser !== 'undefined' && browser.runtime && browser.tabs
+        ? browser
+        : null;
+    if (api) {
+      api.tabs.create({ url: api.runtime.getURL('import.html') });
+    }
   });
 
   function getAutoEnter() {

@@ -2,7 +2,7 @@
 <html lang="en">
   <head>
     <meta charset="utf-8">
-    <title>PVE Paste Helper</title>
+    <title>PVE Snippets</title>
     <style>
       :root {
         color-scheme: dark;
@@ -186,9 +186,6 @@
         color: var(--popup-text-muted);
         margin-top: 8px;
       }
-      input[type="file"] {
-        display: none;
-      }
 
       /* Footer */
       .popup-footer {
@@ -214,7 +211,7 @@
   </head>
   <body>
     <header class="header">
-      <h1>PVE Paste Helper</h1>
+      <h1>PVE Snippets</h1>
       <p>Paste into noVNC or any page. On PVE consoles use <code>Ctrl+V</code> / <code>⌘V</code> or the panel.</p>
     </header>
 
@@ -238,15 +235,14 @@
         <button type="button" id="export-btn">Export</button>
         <button type="button" id="import-btn">Import</button>
       </div>
-      <input type="file" id="import-file" accept=".json,application/json" hidden>
-      <p class="hint" id="export-hint">Download or import saved snippets.</p>
+      <p class="hint" id="export-hint">Download or import saved snippets. Import opens in a new tab.</p>
     </div>
 
     <footer class="popup-footer">
       <span id="version-label"></span>
       <a href="https://github.com/xman601/pve-snippets" target="_blank" rel="noopener noreferrer">GitHub</a>
       &middot;
-      <a href="https://github.com/xman601/pve-snippets/blob/main/docs/PRIVACY_POLICY_TEMPLATE.md" target="_blank" rel="noopener noreferrer">Privacy</a>
+      <a href="https://github.com/xman601/pve-snippets/blob/main/docs/PRIVACY_POLICY.md" target="_blank" rel="noopener noreferrer">Privacy</a>
       <br>
       <small>Data stays on this device.</small>
     </footer>

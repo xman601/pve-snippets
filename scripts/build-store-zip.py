@@ -6,7 +6,7 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
 EXTENSION_DIR = ROOT / "extension"
-ZIP_PATH = ROOT / "pve-paste-helper.zip"
+ZIP_PATH = ROOT / "pve-snippets.zip"
 
 
 def main():
