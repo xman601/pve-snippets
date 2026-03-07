@@ -112,4 +112,11 @@
     };
     reader.readAsText(file, 'utf-8');
   });
+
+  const versionEl = document.getElementById('version-label');
+  const runtime = typeof chrome !== 'undefined' && chrome.runtime ? chrome.runtime : typeof browser !== 'undefined' && browser.runtime ? browser.runtime : null;
+  if (versionEl && runtime && runtime.getManifest) {
+    const manifest = runtime.getManifest();
+    versionEl.textContent = (manifest.version || '');
+  }
 })();
