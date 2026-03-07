@@ -1,4 +1,4 @@
-(function () {
+(function() {
   'use strict';
 
   const SNIPPETS_KEY = 'pmx_snippets_v1';
@@ -15,16 +15,16 @@
   const popupPasteHint = document.getElementById('popup-paste-hint');
 
   function getSnippets() {
-    return new Promise(function (resolve) {
+    return new Promise(function(resolve) {
       try {
         if (typeof chrome !== 'undefined' && chrome.storage && chrome.storage.local) {
-          chrome.storage.local.get([SNIPPETS_KEY], function (res) {
+          chrome.storage.local.get([SNIPPETS_KEY], function(res) {
             const raw = res[SNIPPETS_KEY];
             resolve(Array.isArray(raw) ? raw : []);
           });
           return;
         }
-      } catch (_) {}
+      } catch (_) { }
       resolve([]);
     });
   }
@@ -40,8 +40,8 @@
     URL.revokeObjectURL(url);
   }
 
-  exportBtn.addEventListener('click', function () {
-    getSnippets().then(function (snippets) {
+  exportBtn.addEventListener('click', function() {
+    getSnippets().then(function(snippets) {
       if (snippets.length === 0) {
         exportHint.textContent = 'No snippets to export.';
         return;
@@ -53,7 +53,7 @@
   });
 
   // Open import in a tab so the file picker works when the popup would close (e.g. Firefox).
-  importBtn.addEventListener('click', function () {
+  importBtn.addEventListener('click', function() {
     const api = typeof chrome !== 'undefined' && chrome.runtime && chrome.tabs
       ? chrome
       : typeof browser !== 'undefined' && browser.runtime && browser.tabs
@@ -65,15 +65,15 @@
   });
 
   function getAutoEnter() {
-    return new Promise(function (resolve) {
+    return new Promise(function(resolve) {
       try {
         if (typeof chrome !== 'undefined' && chrome.storage && chrome.storage.local) {
-          chrome.storage.local.get([AUTO_ENTER_KEY], function (res) {
+          chrome.storage.local.get([AUTO_ENTER_KEY], function(res) {
             resolve(Boolean(res[AUTO_ENTER_KEY]));
           });
           return;
         }
-      } catch (_) {}
+      } catch (_) { }
       resolve(false);
     });
   }
@@ -83,31 +83,31 @@
       if (typeof chrome !== 'undefined' && chrome.storage && chrome.storage.local) {
         chrome.storage.local.set({ [AUTO_ENTER_KEY]: value });
       }
-    } catch (_) {}
+    } catch (_) { }
   }
 
   if (autoEnterCheckbox) {
-    getAutoEnter().then(function (checked) {
+    getAutoEnter().then(function(checked) {
       autoEnterCheckbox.checked = checked;
     });
-    autoEnterCheckbox.addEventListener('change', function () {
+    autoEnterCheckbox.addEventListener('change', function() {
       setAutoEnter(autoEnterCheckbox.checked);
     });
   }
 
   function sendToContentScript(message) {
-    return new Promise(function (resolve) {
+    return new Promise(function(resolve) {
       if (typeof chrome === 'undefined' || !chrome.tabs || !chrome.runtime) {
         resolve({ ok: false, error: 'Not supported' });
         return;
       }
-      chrome.tabs.query({ active: true, currentWindow: true }, function (tabs) {
+      chrome.tabs.query({ active: true, currentWindow: true }, function(tabs) {
         const tab = tabs && tabs[0];
         if (!tab || !tab.id) {
           resolve({ ok: false, error: 'No tab' });
           return;
         }
-        chrome.tabs.sendMessage(tab.id, message, function (response) {
+        chrome.tabs.sendMessage(tab.id, message, function(response) {
           if (chrome.runtime.lastError) {
             resolve({ ok: false, error: chrome.runtime.lastError.message });
             return;
@@ -126,14 +126,14 @@
   }
 
   if (popupSendBtn && popupPasteText) {
-    popupSendBtn.addEventListener('click', function () {
+    popupSendBtn.addEventListener('click', function() {
       const text = (popupPasteText.value || '').trim();
       if (!text) {
         setPasteHint('Enter or paste text above, then click Paste into page.', true);
         return;
       }
       setPasteHint('Pasting…');
-      sendToContentScript({ action: 'sendText', text: text }).then(function (r) {
+      sendToContentScript({ action: 'sendText', text: text }).then(function(r) {
         if (r.ok) {
           setPasteHint('Pasted ' + text.length + ' characters into the page.');
         } else {
@@ -147,7 +147,7 @@
     });
   }
 
-  getSnippets().then(function (snippets) {
+  getSnippets().then(function(snippets) {
     if (snippets.length === 0) {
       exportBtn.disabled = true;
       exportHint.textContent = 'No snippets saved yet. Save some from the paste panel on a VM console.';
