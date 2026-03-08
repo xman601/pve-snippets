@@ -174,6 +174,17 @@
     });
   }
 
+  function reorderSnippets(fromIndex, toIndex) {
+    if (fromIndex === toIndex) return Promise.resolve();
+    return getSnippets().then(function(snippets) {
+      if (fromIndex < 0 || fromIndex >= snippets.length || toIndex < 0 || toIndex >= snippets.length) return;
+      const copy = snippets.slice();
+      const item = copy.splice(fromIndex, 1)[0];
+      copy.splice(toIndex, 0, item);
+      return setSnippets(copy);
+    });
+  }
+
   const popupSnippetList = document.getElementById('popup-snippet-list');
   const popupNewSnippetBtn = document.getElementById('popup-new-snippet-btn');
   const popupSnippetForm = document.getElementById('popup-snippet-form');
@@ -201,6 +212,8 @@
     if (popupSnippetText) popupSnippetText.value = '';
   }
 
+  const GRIP_SVG = '<svg width="10" height="14" viewBox="0 0 24 24" fill="currentColor"><circle cx="9" cy="6" r="1.5"/><circle cx="15" cy="6" r="1.5"/><circle cx="9" cy="12" r="1.5"/><circle cx="15" cy="12" r="1.5"/><circle cx="9" cy="18" r="1.5"/><circle cx="15" cy="18" r="1.5"/></svg>';
+
   function renderSnippetList() {
     if (!popupSnippetList) return;
     const q = (cpSearchInput && cpSearchInput.value || '').trim().toLowerCase();
@@ -210,6 +223,7 @@
             return (s.name || '').toLowerCase().includes(q) || (s.text || '').toLowerCase().includes(q);
           })
         : snippets;
+      const canReorder = !q;
       popupSnippetList.innerHTML = '';
       if (filtered.length === 0) {
         const empty = document.createElement('div');
@@ -222,9 +236,7 @@
         const row = document.createElement('div');
         row.className = 'pmx-snip-row';
         row.dataset.id = s.id;
-        const num = document.createElement('span');
-        num.className = 'pmx-snip-num';
-        num.textContent = String(idx + 1).padStart(2, '0');
+        if (canReorder) row.dataset.snippetIndex = String(idx);
         const info = document.createElement('div');
         info.className = 'pmx-snip-info';
         const nameEl = document.createElement('div');
@@ -232,7 +244,8 @@
         nameEl.textContent = s.name || '(unnamed)';
         const preview = document.createElement('div');
         preview.className = 'pmx-snip-preview';
-        preview.textContent = s.text || '';
+        const previewText = (s.text || '').replace(/\r?\n/g, ' ').trim();
+        preview.textContent = previewText.length > 52 ? previewText.slice(0, 49) + '\u2026' : previewText;
         info.appendChild(nameEl);
         info.appendChild(preview);
         const actions = document.createElement('div');
@@ -240,7 +253,7 @@
         const runBtn = document.createElement('button');
         runBtn.type = 'button';
         runBtn.className = 'pmx-snip-send';
-        runBtn.textContent = 'Run';
+        runBtn.textContent = 'Send';
         runBtn.addEventListener('click', function() {
           if (!s.text) return;
           sendToContentScript({ action: 'sendText', text: s.text }).then(function(r) {
@@ -251,7 +264,7 @@
         const editBtn = document.createElement('button');
         editBtn.type = 'button';
         editBtn.className = 'pmx-snip-edit';
-        editBtn.innerHTML = '<svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>';
+        editBtn.innerHTML = '<svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>';
         editBtn.title = 'Edit';
         editBtn.addEventListener('click', function() {
           showSnippetForm(s);
@@ -264,12 +277,48 @@
         delBtn.addEventListener('click', function() {
           deleteSnippet(s.id).then(function() { renderSnippetList(); });
         });
+        const actionsExtra = document.createElement('div');
+        actionsExtra.className = 'pmx-snip-actions-extra';
+        actionsExtra.appendChild(delBtn);
+        actionsExtra.appendChild(editBtn);
+        actions.appendChild(actionsExtra);
+        actions.appendChild(runBtn);
         row.addEventListener('mouseenter', function() { row.classList.add('active'); });
         row.addEventListener('mouseleave', function() { row.classList.remove('active'); });
-        actions.appendChild(runBtn);
-        actions.appendChild(editBtn);
-        actions.appendChild(delBtn);
-        row.appendChild(num);
+        if (canReorder) {
+          const dragHandle = document.createElement('div');
+          dragHandle.className = 'pmx-snip-drag-handle';
+          dragHandle.innerHTML = GRIP_SVG;
+          dragHandle.title = 'Drag to reorder';
+          dragHandle.draggable = true;
+          dragHandle.addEventListener('dragstart', function(e) {
+            e.dataTransfer.setData('text/plain', String(idx));
+            e.dataTransfer.effectAllowed = 'move';
+            row.classList.add('dragging');
+          });
+          dragHandle.addEventListener('dragend', function() {
+            popupSnippetList.querySelectorAll('.pmx-snip-row').forEach(function(r) {
+              r.classList.remove('dragging');
+              r.classList.remove('drag-over');
+            });
+          });
+          row.addEventListener('dragover', function(e) {
+            e.preventDefault();
+            e.dataTransfer.dropEffect = 'move';
+            if (!row.classList.contains('dragging')) row.classList.add('drag-over');
+          });
+          row.addEventListener('dragleave', function(e) {
+            if (!row.contains(e.relatedTarget)) row.classList.remove('drag-over');
+          });
+          row.addEventListener('drop', function(e) {
+            e.preventDefault();
+            row.classList.remove('drag-over');
+            const fromIndex = parseInt(e.dataTransfer.getData('text/plain'), 10);
+            const toIndex = parseInt(row.dataset.snippetIndex, 10);
+            reorderSnippets(fromIndex, toIndex).then(function() { renderSnippetList(); });
+          });
+          row.appendChild(dragHandle);
+        }
         row.appendChild(info);
         row.appendChild(actions);
         popupSnippetList.appendChild(row);

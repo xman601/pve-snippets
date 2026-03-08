@@ -1262,6 +1262,7 @@
   // Initialize
   function init() {
     if (!isProxmoxConsole()) return;
+    if (document.getElementById('pmx-wrap')) return; // already injected (e.g. by background script)
     waitForCanvas((canvas) => {
       injectButton(canvas);
       injectHotkey(canvas);

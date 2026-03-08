@@ -198,6 +198,16 @@
         transition: border-color 0.12s, background 0.12s;
       }
       .pmx-snip-row:hover { border-color: var(--pmx-border); background: var(--pmx-bgPanel); }
+      .pmx-snip-row.dragging { opacity: 0.5; }
+      .pmx-snip-row.drag-over { border-color: var(--pmx-accent); background: var(--pmx-bgPanel); }
+      .pmx-snip-row .pmx-snip-drag-handle {
+        cursor: grab;
+        color: var(--pmx-textMuted);
+        flex-shrink: 0;
+        display: flex;
+        align-items: center;
+      }
+      .pmx-snip-row .pmx-snip-drag-handle:active { cursor: grabbing; }
 
       .pmx-snip-info { flex: 1; min-width: 0; }
       .pmx-snip-name {
@@ -220,9 +230,22 @@
 
       .pmx-snip-actions {
         flex-shrink: 0;
+        width: max-content;
+        min-width: 0;
         display: flex;
         align-items: center;
         gap: 4px;
+      }
+      .pmx-snip-actions-extra {
+        display: flex;
+        align-items: center;
+        gap: 4px;
+        opacity: 0;
+        transition: opacity 0.12s;
+      }
+      .pmx-snip-row:hover .pmx-snip-actions-extra,
+      .pmx-snip-row.active .pmx-snip-actions-extra {
+        opacity: 1;
       }
       .pmx-snip-actions button {
         height: 24px;
@@ -251,16 +274,21 @@
         color: var(--pmx-textMuted);
         padding: 0;
         width: 24px;
+        min-width: 24px;
         transition: border-color 0.12s, color 0.12s;
       }
-      .pmx-snip-edit:hover { border-color: var(--pmx-accent); color: var(--pmx-accent); }
+      .pmx-snip-edit svg { width: 9px; height: 9px; }
+      .pmx-snip-edit:hover,
+      .pmx-snip-edit.active { border-color: var(--pmx-accent); color: var(--pmx-accent); }
       .pmx-snip-del {
         background: transparent;
         border: none;
         color: var(--pmx-textMuted);
         font-size: 14px;
+        line-height: 1;
         padding: 0;
         width: 28px;
+        min-width: 28px;
         transition: color 0.12s;
       }
       .pmx-snip-del:hover { color: var(--pmx-accent); }
@@ -462,32 +490,19 @@
       .pmx-header { border-radius: 0; }
       .pmx-tab { padding: 10px 12px; }
 
-      /* Snippet row: numbered, left accent on active */
+      /* Snippet row: same as noVNC panel */
       .pmx-snip-row {
-        padding: 10px 12px 10px 10px;
-        gap: 10px;
-        border-radius: 0;
-        border: none;
-        border-left: 3px solid transparent;
-        background: var(--pmx-bg);
+        padding: 8px 10px;
+        gap: 8px;
+        border-radius: 4px;
+        border: 1px solid var(--pmx-border);
       }
       .pmx-snip-row:hover,
       .pmx-snip-row.active {
         background: var(--pmx-bgPanel);
-        border-left-color: var(--pmx-accent);
       }
-      .pmx-snip-num {
-        flex-shrink: 0;
-        font-size: 10px;
-        font-weight: 500;
-        color: var(--pmx-textMuted);
-        width: 20px;
-        text-align: right;
-      }
-      .pmx-snip-send { font-size: 9px; font-weight: 600; letter-spacing: 0.06em; padding: 0 10px; }
-      .pmx-snip-edit { width: 26px; }
-      .pmx-snip-edit svg { width: 10px; height: 10px; }
-      .pmx-snip-del { width: 26px; font-size: 12px; }
+      .pmx-snip-row.drag-over { border-color: var(--pmx-accent); background: var(--pmx-bgPanel); }
+      .pmx-snip-send { font-size: 9px; font-weight: 600; letter-spacing: 0.06em; padding: 0 9px; }
 
       .pmx-snip-footer-left {
         font-size: 9px;
@@ -552,6 +567,7 @@
         </div>
       </div>
       <div class="pmx-snip-footer">
+        <span class="pmx-snip-hint">Drag to reorder snippets</span>
         <span class="pmx-footer-spacer"></span>
         <button type="button" class="pmx-snip-new-btn" id="popup-new-snippet-btn">+ New snippet</button>
       </div>
