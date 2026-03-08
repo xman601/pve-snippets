@@ -6,6 +6,8 @@
 
   const SNIPPETS_KEY = 'pmx_snippets_v1';
   const AUTO_ENTER_KEY = 'pmx_auto_enter';
+  const KEYSTROKE_DELAY_KEY = 'pmx_keystroke_delay_ms';
+  const DEFAULT_KEYSTROKE_DELAY_MS = 20;
 
   const THEME = {
     bg: '#141414',
@@ -115,6 +117,14 @@
   // Send text character by character. Release paste keys and delay first char so noVNC is ready.
   const FIRST_CHAR_DELAY_MS = 40;
 
+  function getKeystrokeDelayMs() {
+    return storageGet(KEYSTROKE_DELAY_KEY).then(function (val) {
+      const n = Number(val);
+      if (!Number.isFinite(n) || n < 0) return DEFAULT_KEYSTROKE_DELAY_MS;
+      return Math.min(n, 500);
+    });
+  }
+
   function sendEnter(canvas) {
     canvas.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', code: 'Enter', keyCode: 13, which: 13, bubbles: true, cancelable: true }));
     canvas.dispatchEvent(new KeyboardEvent('keyup',  { key: 'Enter', code: 'Enter', keyCode: 13, which: 13, bubbles: true, cancelable: true }));
@@ -148,13 +158,19 @@
     setTimeout(sendNext, FIRST_CHAR_DELAY_MS);
   }
 
+  function sendTextWithStoredDelay(canvas, text) {
+    getKeystrokeDelayMs().then(function (delay) {
+      sendText(canvas, text, delay);
+    });
+  }
+
   // Read clipboard and paste into canvas
   async function pasteClipboard(canvas) {
     try {
       const text = await navigator.clipboard.readText();
       if (!text) { showToast('\u26a0 Clipboard is empty'); return; }
       showToast('\u23f3 Pasting ' + text.length + ' chars\u2026');
-      sendText(canvas, text);
+      sendTextWithStoredDelay(canvas, text);
     } catch (_) {
       showToast('\u26a0 Clipboard blocked \u2014 open panel and paste into the text box');
     }
@@ -710,7 +726,7 @@
       const text = textarea.value;
       if (!text) { showToast('\u26a0 Nothing to paste'); return; }
       showToast('\u23f3 Pasting ' + text.length + ' chars\u2026');
-      sendText(canvas, text);
+      sendTextWithStoredDelay(canvas, text);
     });
 
     // ── Snippets view ──
@@ -951,7 +967,7 @@
           e.stopPropagation();
           if (!s.text) return;
           showToast('\u23f3 Pasting ' + s.text.length + ' chars\u2026');
-          sendText(canvas, s.text);
+          sendTextWithStoredDelay(canvas, s.text);
         });
 
         const editEl = document.createElement('button');
@@ -1102,7 +1118,7 @@
       function tryHandle() {
         const canvas = document.querySelector('canvas');
         if (canvas && msg.action === 'sendText') {
-          sendText(canvas, text);
+          sendTextWithStoredDelay(canvas, text);
           sendResponse({ ok: true });
           return true;
         }

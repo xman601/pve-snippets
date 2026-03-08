@@ -3,6 +3,8 @@
 
   const SNIPPETS_KEY = 'pmx_snippets_v1';
   const AUTO_ENTER_KEY = 'pmx_auto_enter';
+  const KEYSTROKE_DELAY_KEY = 'pmx_keystroke_delay_ms';
+  const DEFAULT_KEYSTROKE_DELAY_MS = 20;
 
   const MAX_SNIPPETS = 50;
 
@@ -10,6 +12,7 @@
   const exportHint = document.getElementById('export-hint');
   const importBtn = document.getElementById('import-btn');
   const autoEnterCheckbox = document.getElementById('auto-enter');
+  const keystrokeDelayInput = document.getElementById('keystroke-delay');
   const popupSendBtn = document.getElementById('popup-send-btn');
   const popupPasteText = document.getElementById('popup-paste-text');
   const popupPasteHint = document.getElementById('popup-paste-hint');
@@ -92,6 +95,43 @@
     });
     autoEnterCheckbox.addEventListener('change', function() {
       setAutoEnter(autoEnterCheckbox.checked);
+    });
+  }
+
+  function getKeystrokeDelay() {
+    return new Promise(function(resolve) {
+      try {
+        if (typeof chrome !== 'undefined' && chrome.storage && chrome.storage.local) {
+          chrome.storage.local.get([KEYSTROKE_DELAY_KEY], function(res) {
+            const v = res[KEYSTROKE_DELAY_KEY];
+            const n = Number(v);
+            resolve(Number.isFinite(n) && n >= 0 ? Math.min(n, 500) : DEFAULT_KEYSTROKE_DELAY_MS);
+          });
+          return;
+        }
+      } catch (_) { }
+      resolve(DEFAULT_KEYSTROKE_DELAY_MS);
+    });
+  }
+
+  function setKeystrokeDelay(ms) {
+    const val = Math.max(0, Math.min(500, Number(ms) || DEFAULT_KEYSTROKE_DELAY_MS));
+    try {
+      if (typeof chrome !== 'undefined' && chrome.storage && chrome.storage.local) {
+        chrome.storage.local.set({ [KEYSTROKE_DELAY_KEY]: val });
+      }
+    } catch (_) { }
+  }
+
+  if (keystrokeDelayInput) {
+    getKeystrokeDelay().then(function(ms) {
+      keystrokeDelayInput.value = String(ms);
+    });
+    keystrokeDelayInput.addEventListener('change', function() {
+      setKeystrokeDelay(keystrokeDelayInput.value);
+    });
+    keystrokeDelayInput.addEventListener('input', function() {
+      setKeystrokeDelay(keystrokeDelayInput.value);
     });
   }
 
