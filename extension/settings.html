@@ -1,0 +1,627 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <title>Settings – PVE Snippets</title>
+    <link rel="icon" type="image/png" sizes="48x48" href="icons/icon48.png">
+    <link rel="icon" type="image/png" sizes="16x16" href="icons/icon16.png">
+    <style>
+      :root {
+        color-scheme: dark;
+        --bg: #0a0a0a;
+        --surface: #141414;
+        --surface-hover: #1a1a1a;
+        --border: #262626;
+        --border-light: #333;
+        --text: #fafafa;
+        --text-muted: #737373;
+        --accent: #ea580c;
+        --accent-hover: #f97316;
+        --accent-subtle: rgba(234, 88, 12, 0.12);
+        --success: #22c55e;
+        --error: #ef4444;
+        --radius: 8px;
+        --radius-sm: 6px;
+      }
+      * { box-sizing: border-box; margin: 0; padding: 0; }
+      html { scroll-behavior: smooth; }
+      body {
+        font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+        font-size: 14px;
+        background: var(--bg);
+        color: var(--text);
+        line-height: 1.5;
+        min-height: 100vh;
+        overflow-x: hidden;
+      }
+
+      .layout {
+        max-width: 900px;
+        margin: 0 auto;
+        padding: 20px 16px 32px;
+        min-height: 100vh;
+      }
+
+      .main-grid-wrapper {
+        height: 100vh;
+        min-height: 420px;
+        max-height: 728px;
+      }
+      .main-grid {
+        display: grid;
+        grid-template-columns: 380px 1fr;
+        gap: 24px;
+        align-items: stretch;
+        height: 100%;
+        min-height: 0;
+      }
+      @media (max-width: 720px) {
+        .main-grid-wrapper { height: auto; min-height: 0; max-height: none; }
+        .main-grid { grid-template-columns: 1fr; align-items: start; height: auto; }
+        .setting-grid { grid-template-columns: 1fr; }
+      }
+
+      .sidebar {
+        min-height: 0;
+        overflow-y: auto;
+      }
+      .sidebar .section { margin-bottom: 24px; }
+      .sidebar .section:last-child { margin-bottom: 0; }
+
+      .snippets-panel {
+        display: flex;
+        flex-direction: column;
+        min-height: 0;
+      }
+      .snippets-panel .section {
+        margin-bottom: 0;
+        flex: 1;
+        display: flex;
+        flex-direction: column;
+        min-height: 0;
+      }
+      .snippets-panel .section-title { flex-shrink: 0; }
+      .snippets-panel .stats-row { flex-shrink: 0; }
+      .snippets-panel .list-header { flex-shrink: 0; }
+      .snippet-list {
+        flex: 1;
+        min-height: 0;
+        overflow-y: auto;
+        scrollbar-width: thin;
+        scrollbar-color: var(--border-light) transparent;
+      }
+      .snippet-list::-webkit-scrollbar { width: 8px; height: 8px; }
+      .snippet-list::-webkit-scrollbar-track { background: transparent; }
+      .snippet-list::-webkit-scrollbar-thumb { background: var(--border-light); border-radius: 4px; }
+      .snippet-list::-webkit-scrollbar-thumb:hover { background: var(--border); }
+
+      /* Header */
+      .header {
+        margin-bottom: 20px;
+      }
+      .header h1 {
+        font-size: 18px;
+        font-weight: 600;
+        letter-spacing: -0.02em;
+        color: var(--text);
+      }
+      .header p {
+        margin-top: 2px;
+        font-size: 12px;
+        color: var(--text-muted);
+      }
+
+      /* Section cards */
+      .section {
+        background: var(--surface);
+        border: 1px solid var(--border);
+        border-radius: var(--radius);
+        padding: 14px 18px;
+        margin-bottom: 16px;
+      }
+      .section-title {
+        font-size: 11px;
+        font-weight: 600;
+        text-transform: uppercase;
+        letter-spacing: 0.08em;
+        color: var(--text-muted);
+        margin-bottom: 12px;
+      }
+      .subsection {
+        margin-top: 14px;
+      }
+      .subsection:first-child { margin-top: 0; }
+      .subsection-title {
+        font-size: 10px;
+        font-weight: 600;
+        text-transform: uppercase;
+        letter-spacing: 0.06em;
+        color: var(--border-light);
+        margin-bottom: 8px;
+        padding-bottom: 4px;
+      }
+
+      /* Paste behavior – compact single-line rows */
+      .setting-row {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 12px;
+        padding: 6px 0;
+        border-bottom: 1px solid var(--border);
+      }
+      .setting-row:last-child { border-bottom: none; }
+      .setting-label {
+        font-size: 13px;
+        color: var(--text);
+        flex: 1;
+        min-width: 0;
+      }
+      .setting-label .hint {
+        font-size: 11px;
+        color: var(--text-muted);
+        font-weight: 400;
+        margin-left: 6px;
+      }
+      .setting-input {
+        flex-shrink: 0;
+      }
+      .setting-grid {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 12px 20px;
+        margin: 6px 0 0;
+      }
+      .setting-grid .setting-row { border-bottom: none; padding: 0; }
+      .setting-grid .setting-row-wrap {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 8px;
+      }
+      .setting-grid .setting-label { flex: 0 1 auto; margin-bottom: 0; }
+      .setting-grid .setting-input input[type="number"] { width: 64px; }
+      .setting-input input[type="checkbox"] {
+        width: 18px;
+        height: 18px;
+        accent-color: var(--accent);
+        cursor: pointer;
+      }
+      .setting-input input[type="number"] {
+        width: 72px;
+        padding: 6px 10px;
+        font-size: 13px;
+        background: var(--bg);
+        border: 1px solid var(--border);
+        border-radius: var(--radius-sm);
+        color: var(--text);
+        text-align: left;
+      }
+      .setting-input input[type="number"]:focus {
+        outline: none;
+        border-color: var(--accent);
+      }
+      .setting-input select {
+        min-width: 130px;
+        height: 32px;
+        padding: 0 32px 0 12px;
+        font-size: 13px;
+        background: var(--bg);
+        border: 1px solid var(--border);
+        border-radius: var(--radius-sm);
+        color: var(--text);
+        cursor: pointer;
+        font-family: inherit;
+        -webkit-appearance: none;
+        -moz-appearance: none;
+        appearance: none;
+        background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%23737373' stroke-width='2.2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'/%3E%3C/svg%3E");
+        background-repeat: no-repeat;
+        background-position: right 10px center;
+        transition: border-color 0.15s, background-color 0.15s;
+      }
+      .setting-input select:hover {
+        border-color: var(--border-light);
+        background-color: var(--surface);
+      }
+      .setting-input select:focus {
+        outline: none;
+        border-color: var(--accent);
+        background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%23ea580c' stroke-width='2.2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'/%3E%3C/svg%3E");
+      }
+
+      /* Backup section */
+      .backup-actions {
+        display: flex;
+        flex-direction: column;
+        gap: 12px;
+      }
+      .sidebar .backup-actions { flex-direction: column; }
+      .upload-zone {
+        position: relative;
+        min-height: 56px;
+        border: 2px dashed var(--border-light);
+        border-radius: var(--radius-sm);
+        padding: 12px 16px;
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        cursor: pointer;
+        transition: border-color 0.2s, background 0.2s;
+        background: var(--bg);
+      }
+      .upload-zone:hover,
+      .upload-zone.drag-over {
+        border-color: var(--accent);
+        background: var(--accent-subtle);
+      }
+      .upload-zone input[type="file"] {
+        position: absolute;
+        inset: 0;
+        opacity: 0;
+        cursor: pointer;
+        width: 100%;
+        height: 100%;
+      }
+      .upload-icon {
+        width: 36px;
+        height: 36px;
+        background: var(--accent-subtle);
+        border-radius: var(--radius-sm);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        flex-shrink: 0;
+      }
+      .upload-icon svg { width: 18px; height: 18px; stroke: var(--accent); fill: none; }
+      .upload-text { display: flex; flex-direction: column; gap: 2px; }
+      .upload-text strong { font-size: 13px; }
+      .upload-text span { font-size: 11px; color: var(--text-muted); }
+      .export-btn {
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        padding: 8px 14px;
+        font-size: 12px;
+        font-weight: 500;
+        background: var(--surface);
+        border: 1px solid var(--border);
+        border-radius: var(--radius-sm);
+        color: var(--text);
+        cursor: pointer;
+        font-family: inherit;
+        transition: background 0.2s, border-color 0.2s, color 0.2s;
+      }
+      .export-btn:hover {
+        background: var(--accent);
+        border-color: var(--accent);
+        color: #fff;
+      }
+      .export-btn svg { width: 16px; height: 16px; stroke: currentColor; fill: none; }
+      .btn-secondary {
+        display: inline-flex;
+        align-items: center;
+        padding: 8px 14px;
+        background: var(--surface);
+        border: 1px solid var(--border);
+        border-radius: var(--radius-sm);
+        font-size: 13px;
+        color: var(--text);
+        cursor: pointer;
+        font-family: inherit;
+        transition: background 0.2s, border-color 0.2s;
+      }
+      .btn-secondary:hover { background: var(--surface-hover); border-color: var(--border-light); }
+
+      /* Stats */
+      .stats-row {
+        display: grid;
+        grid-template-columns: repeat(3, 1fr);
+        gap: 10px;
+        margin-bottom: 14px;
+      }
+      .stat-card {
+        background: var(--bg);
+        border: 1px solid var(--border);
+        border-radius: var(--radius-sm);
+        padding: 10px 12px;
+        text-align: center;
+      }
+      .stat-value {
+        font-size: 20px;
+        font-weight: 700;
+        color: var(--accent);
+        line-height: 1.2;
+      }
+      .stat-label {
+        font-size: 10px;
+        text-transform: uppercase;
+        letter-spacing: 0.05em;
+        color: var(--text-muted);
+        margin-top: 2px;
+      }
+
+      /* Snippets list header */
+      .list-header {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 12px;
+        margin-bottom: 10px;
+      }
+      .list-header .section-title { margin-bottom: 0; }
+      .snippets-count {
+        font-size: 12px;
+        background: var(--bg);
+        border: 1px solid var(--border);
+        border-radius: 99px;
+        padding: 4px 10px;
+        color: var(--text-muted);
+      }
+
+      /* Snippet list */
+      .snippet-list { border-radius: var(--radius-sm); border: 1px solid var(--border); }
+      .snippet-empty {
+        padding: 24px 20px;
+        text-align: center;
+        font-size: 12px;
+        color: var(--text-muted);
+        background: var(--surface);
+      }
+      .snippet-row {
+        background: var(--surface);
+        border-bottom: 1px solid var(--border);
+        display: flex;
+        flex-direction: column;
+        transition: background 0.15s;
+      }
+      .snippet-row:last-child { border-bottom: none; }
+      .snippet-row:hover { background: var(--surface-hover); }
+      .snippet-row.editing { background: var(--surface-hover); border-left: 3px solid var(--accent); }
+      .snippet-view { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 10px 14px; }
+      .snippet-info { flex: 1; min-width: 0; }
+      .snippet-name { font-size: 13px; font-weight: 500; margin-bottom: 2px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+      .snippet-preview { font-size: 11px; color: var(--text-muted); font-family: ui-monospace, Menlo, monospace; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+      .snippet-actions { display: flex; gap: 6px; flex-shrink: 0; }
+      .row-btn {
+        background: none;
+        border: none;
+        cursor: pointer;
+        padding: 6px;
+        display: flex;
+        align-items: center;
+        color: var(--text-muted);
+        transition: color 0.15s;
+      }
+      .row-btn:hover { color: var(--accent); }
+      .row-btn.del:hover { color: var(--error); }
+      .row-btn svg { width: 16px; height: 16px; stroke: currentColor; fill: none; }
+      .snippet-edit {
+        display: none;
+        padding: 12px 16px;
+        border-top: 1px solid var(--border);
+        flex-direction: column;
+        gap: 8px;
+        background: var(--bg);
+      }
+      .snippet-row.editing .snippet-edit { display: flex; }
+      .edit-field { display: flex; flex-direction: column; gap: 4px; }
+      .edit-label { font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.05em; color: var(--text-muted); }
+      .edit-input, .edit-textarea {
+        width: 100%;
+        padding: 8px 10px;
+        font-size: 13px;
+        background: var(--surface);
+        border: 1px solid var(--border);
+        border-radius: var(--radius-sm);
+        color: var(--text);
+        font-family: inherit;
+      }
+      .edit-textarea { font-family: ui-monospace, Menlo, monospace; font-size: 12px; min-height: 72px; resize: vertical; }
+      .edit-actions { display: flex; gap: 8px; justify-content: flex-end; }
+      .edit-btn { padding: 8px 16px; border-radius: var(--radius-sm); font-size: 12px; font-weight: 500; cursor: pointer; font-family: inherit; border: 1px solid var(--border); }
+      .edit-btn-save { background: var(--accent); color: #fff; border-color: var(--accent); }
+      .edit-btn-cancel { background: var(--surface); color: var(--text-muted); }
+
+      /* Footer */
+      .page-footer {
+        margin-top: 24px;
+        padding-top: 14px;
+        border-top: 1px solid var(--border);
+        display: flex;
+        align-items: center;
+        flex-wrap: wrap;
+        gap: 12px;
+      }
+      .status-dot {
+        width: 8px;
+        height: 8px;
+        border-radius: 50%;
+        background: var(--border);
+        flex-shrink: 0;
+      }
+      .status-dot.success { background: var(--success); }
+      .status-dot.error { background: var(--error); }
+      #status { font-size: 13px; color: var(--text-muted); }
+      #status.success { color: var(--success); }
+      #status.error { color: var(--error); }
+      .footer-links {
+        font-size: 12px;
+        color: var(--text-muted);
+        display: flex;
+        align-items: center;
+        gap: 8px;
+      }
+      .footer-links a { color: var(--accent); text-decoration: none; }
+      .footer-links a:hover { text-decoration: underline; }
+      .footer-sep { color: var(--border-light); }
+    </style>
+  </head>
+  <body>
+    <div class="layout">
+      <header class="header">
+        <h1>Settings</h1>
+        <p>Configure PVE Snippets and manage your snippet library.</p>
+      </header>
+
+      <div class="main-grid-wrapper">
+        <div class="main-grid">
+        <aside class="sidebar">
+          <section class="section">
+            <h2 class="section-title">Paste behavior</h2>
+
+            <div class="subsection">
+              <div class="subsection-title">Timing</div>
+              <div class="setting-row">
+                <label class="setting-label" for="settings-auto-enter" title="Press Enter in the VM after pasting text">
+                  Auto-hit Enter after paste
+                </label>
+                <div class="setting-input">
+                  <input type="checkbox" id="settings-auto-enter" />
+                </div>
+              </div>
+              <div class="setting-row">
+                <label class="setting-label" for="settings-keystroke-delay" title="Delay between each character (0–500 ms)">Keystroke <span class="hint">ms</span></label>
+                <div class="setting-input">
+                  <input type="number" id="settings-keystroke-delay" min="0" max="500" step="5" value="20" />
+                </div>
+              </div>
+              <div class="setting-row">
+                <label class="setting-label" for="settings-first-char-delay" title="Delay before first keystroke (0–200 ms)">First char <span class="hint">ms</span></label>
+                <div class="setting-input">
+                  <input type="number" id="settings-first-char-delay" min="0" max="200" step="5" value="40" />
+                </div>
+              </div>
+              <div class="setting-row">
+                <label class="setting-label" for="settings-enter-delay" title="Extra delay after each newline (0–300 ms)">After Enter <span class="hint">ms</span></label>
+                <div class="setting-input">
+                  <input type="number" id="settings-enter-delay" min="0" max="300" step="5" value="0" />
+                </div>
+              </div>
+              <div class="setting-row">
+                <label class="setting-label" for="settings-min-paste-length" title="Block paste if text shorter than this (0–1000)">Min length <span class="hint">chars</span></label>
+                <div class="setting-input">
+                  <input type="number" id="settings-min-paste-length" min="0" max="1000" value="0" />
+                </div>
+              </div>
+            </div>
+
+            <div class="subsection">
+              <div class="subsection-title">Popup</div>
+              <div class="setting-row">
+                <label class="setting-label" for="settings-popup-default-tab" title="Which tab opens when you click the extension icon">Default tab</label>
+                <div class="setting-input">
+                  <select id="settings-popup-default-tab">
+                    <option value="paste">Paste</option>
+                    <option value="snippets">Snippets</option>
+                  </select>
+                </div>
+              </div>
+            </div>
+
+            <div class="subsection">
+              <div class="subsection-title">noVNC panel</div>
+              <div class="setting-row">
+                <label class="setting-label" for="settings-shortcut-paste" title="When disabled, Ctrl+V / ⌘V does nothing on noVNC">Enable Ctrl+V / ⌘V</label>
+                <div class="setting-input">
+                  <input type="checkbox" id="settings-shortcut-paste" checked />
+                </div>
+              </div>
+              <div class="setting-row">
+                <label class="setting-label" for="settings-panel-open" title="Start with the floating panel open instead of the pill">Open panel by default</label>
+                <div class="setting-input">
+                  <input type="checkbox" id="settings-panel-open" />
+                </div>
+              </div>
+              <div class="setting-row">
+                <label class="setting-label" for="settings-panel-position" title="Which corner the noVNC paste panel appears in">Position</label>
+                <div class="setting-input">
+                  <select id="settings-panel-position">
+                    <option value="bottom-right">Bottom right</option>
+                    <option value="bottom-left">Bottom left</option>
+                    <option value="top-right">Top right</option>
+                    <option value="top-left">Top left</option>
+                  </select>
+                </div>
+              </div>
+            </div>
+
+          </section>
+
+          <!-- Backup -->
+          <section class="section">
+            <h2 class="section-title">Backup</h2>
+            <div class="backup-actions">
+              <div class="upload-zone" id="dropZone">
+                <input type="file" id="file" accept=".json,application/json">
+                <div class="upload-icon">
+                  <svg viewBox="0 0 24 24" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+                    <polyline points="17 8 12 3 7 8"/>
+                    <line x1="12" y1="3" x2="12" y2="15"/>
+                  </svg>
+                </div>
+                <div class="upload-text">
+                  <strong>Import from file</strong>
+                  <span>Drop a .json file or click to browse</span>
+                </div>
+              </div>
+              <button type="button" class="export-btn" id="exportBtn">
+                <svg viewBox="0 0 24 24" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                  <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+                  <polyline points="7 10 12 15 17 10"/>
+                  <line x1="12" y1="15" x2="12" y2="3"/>
+                </svg>
+                Export all
+              </button>
+            </div>
+          </section>
+        </aside>
+
+        <main class="snippets-panel">
+          <!-- Snippets -->
+          <section class="section">
+            <h2 class="section-title">Snippets</h2>
+            <div class="stats-row">
+              <div class="stat-card">
+                <div class="stat-value" id="statTotal">0</div>
+                <div class="stat-label">Total</div>
+              </div>
+              <div class="stat-card">
+                <div class="stat-value" id="statRecent">—</div>
+                <div class="stat-label">Last updated</div>
+              </div>
+              <div class="stat-card">
+                <div class="stat-value" id="statSize">0 B</div>
+                <div class="stat-label">Storage</div>
+              </div>
+            </div>
+            <div class="list-header">
+              <span class="section-title">Your snippets</span>
+              <span class="snippets-count" id="snippetCount">0</span>
+            </div>
+            <div class="snippet-list" id="snippetList">
+              <div class="snippet-empty">No snippets yet. Import a backup or add snippets from the popup.</div>
+            </div>
+          </section>
+        </main>
+        </div>
+      </div>
+
+      <footer class="page-footer">
+        <div class="status-dot" id="statusDot"></div>
+        <span id="status">Ready · Data stays on this device.</span>
+        <div class="footer-links">
+          <span id="version-label"></span>
+          <span class="footer-sep">·</span>
+          <a href="https://github.com/xman601/pve-snippets" target="_blank" rel="noopener noreferrer">GitHub</a>
+          <span class="footer-sep">·</span>
+          <a href="https://github.com/xman601/pve-snippets/blob/main/docs/PRIVACY_POLICY.md" target="_blank" rel="noopener noreferrer">Privacy</a>
+        </div>
+      </footer>
+    </div>
+
+    <script src="snippets-manager.js"></script>
+    <script src="settings.js"></script>
+  </body>
+</html>

@@ -237,7 +237,7 @@
   });
   obs.observe(statusEl, { attributes: true, attributeFilter: ['class'] });
 
-  // ── Reload list when import.js writes to storage ───────────────
+  // ── Reload list when settings.js writes to storage ──────────────
   var api = storageApi();
   if (api && chrome.storage && chrome.storage.onChanged) {
     chrome.storage.onChanged.addListener(function (changes, area) {

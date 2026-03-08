@@ -7,7 +7,16 @@
   const SNIPPETS_KEY = 'pmx_snippets_v1';
   const AUTO_ENTER_KEY = 'pmx_auto_enter';
   const KEYSTROKE_DELAY_KEY = 'pmx_keystroke_delay_ms';
+  const FIRST_CHAR_DELAY_KEY = 'pmx_first_char_delay_ms';
+  const ENTER_DELAY_KEY = 'pmx_enter_delay_ms';
+  const SHORTCUT_PASTE_ENABLED_KEY = 'pmx_shortcut_paste_enabled';
+  const PANEL_OPEN_KEY = 'pmx_panel_open_by_default';
+  const PANEL_POSITION_KEY = 'pmx_panel_position';
+  const MIN_PASTE_LENGTH_KEY = 'pmx_min_paste_length';
+  const MAX_SNIPPETS = 200;
   const DEFAULT_KEYSTROKE_DELAY_MS = 20;
+  const DEFAULT_FIRST_CHAR_DELAY_MS = 40;
+  const DEFAULT_ENTER_DELAY_MS = 0;
 
   const THEME = {
     bg: '#141414',
@@ -115,7 +124,13 @@
   }
 
   // Send text character by character. Release paste keys and delay first char so noVNC is ready.
-  const FIRST_CHAR_DELAY_MS = 40;
+  function getFirstCharDelayMs() {
+    return storageGet(FIRST_CHAR_DELAY_KEY).then(function (val) {
+      const n = Number(val);
+      if (!Number.isFinite(n) || n < 0) return DEFAULT_FIRST_CHAR_DELAY_MS;
+      return Math.min(n, 200);
+    });
+  }
 
   function getKeystrokeDelayMs() {
     return storageGet(KEYSTROKE_DELAY_KEY).then(function (val) {
@@ -125,12 +140,31 @@
     });
   }
 
+  function getEnterDelayMs() {
+    return storageGet(ENTER_DELAY_KEY).then(function (val) {
+      const n = Number(val);
+      if (!Number.isFinite(n) || n < 0) return DEFAULT_ENTER_DELAY_MS;
+      return Math.min(n, 300);
+    });
+  }
+
+  function getMinPasteLength() {
+    return storageGet(MIN_PASTE_LENGTH_KEY).then(function (val) {
+      const n = Number(val);
+      if (!Number.isFinite(n) || n < 0) return 0;
+      return Math.min(1000, n);
+    });
+  }
+
   function sendEnter(canvas) {
     canvas.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', code: 'Enter', keyCode: 13, which: 13, bubbles: true, cancelable: true }));
     canvas.dispatchEvent(new KeyboardEvent('keyup',  { key: 'Enter', code: 'Enter', keyCode: 13, which: 13, bubbles: true, cancelable: true }));
   }
 
-  function sendText(canvas, text, delay = 20) {
+  function sendText(canvas, text, delay, firstCharDelayMs, enterDelayMs) {
+    const delayMs = delay != null && Number.isFinite(Number(delay)) ? Math.max(0, Number(delay)) : DEFAULT_KEYSTROKE_DELAY_MS;
+    const firstDelay = firstCharDelayMs != null && Number.isFinite(Number(firstCharDelayMs)) ? Math.max(0, Math.min(200, Number(firstCharDelayMs))) : DEFAULT_FIRST_CHAR_DELAY_MS;
+    const afterEnterMs = enterDelayMs != null && Number.isFinite(Number(enterDelayMs)) ? Math.max(0, Math.min(300, Number(enterDelayMs))) : DEFAULT_ENTER_DELAY_MS;
     releasePasteKeys(canvas);
     canvas.focus();
     const normalized = text.replace(/\r\n/g, '\n');
@@ -140,7 +174,7 @@
       if (i >= normalized.length) {
         storageGet(AUTO_ENTER_KEY).then(function (autoEnter) {
           if (autoEnter) {
-            setTimeout(function () { sendEnter(canvas); }, delay);
+            setTimeout(function () { sendEnter(canvas); }, delayMs);
           }
         });
         showToast('\u2713 Pasted ' + normalized.length + ' characters');
@@ -149,18 +183,20 @@
       const char = normalized[i];
       if (char === '\n' || char === '\r') {
         sendEnter(canvas);
+        i++;
+        setTimeout(sendNext, delayMs + afterEnterMs);
       } else {
         sendChar(canvas, char);
+        i++;
+        setTimeout(sendNext, delayMs);
       }
-      i++;
-      setTimeout(sendNext, delay);
     }
-    setTimeout(sendNext, FIRST_CHAR_DELAY_MS);
+    setTimeout(sendNext, firstDelay);
   }
 
   function sendTextWithStoredDelay(canvas, text) {
-    getKeystrokeDelayMs().then(function (delay) {
-      sendText(canvas, text, delay);
+    Promise.all([getKeystrokeDelayMs(), getFirstCharDelayMs(), getEnterDelayMs()]).then(function (vals) {
+      sendText(canvas, text, vals[0], vals[1], vals[2]);
     });
   }
 
@@ -169,6 +205,11 @@
     try {
       const text = await navigator.clipboard.readText();
       if (!text) { showToast('\u26a0 Clipboard is empty'); return; }
+      const minLen = await getMinPasteLength();
+      if (minLen > 0 && text.length < minLen) {
+        showToast('\u26a0 Paste too short (min ' + minLen + ' characters)');
+        return;
+      }
       showToast('\u23f3 Pasting ' + text.length + ' chars\u2026');
       sendTextWithStoredDelay(canvas, text);
     } catch (_) {
@@ -249,7 +290,7 @@
       snippets.unshift({ id: newId, name: trimmedName, text: trimmedText, updatedAt: now });
       id = newId;
     }
-    await storageSet(SNIPPETS_KEY, snippets.slice(0, 50));
+    await storageSet(SNIPPETS_KEY, snippets.slice(0, MAX_SNIPPETS));
     return { ok: true, id };
   }
 
@@ -1072,6 +1113,24 @@
     wrap.appendChild(btnRow);
     document.body.appendChild(wrap);
 
+    function applyPanelPosition(w) {
+      storageGet(PANEL_POSITION_KEY).then(function (pos) {
+        const p = (pos === 'bottom-left' || pos === 'top-right' || pos === 'top-left') ? pos : 'bottom-right';
+        const px = '16px';
+        w.style.top = w.style.bottom = w.style.left = w.style.right = 'auto';
+        if (p === 'bottom-right') { w.style.bottom = px; w.style.right = px; }
+        else if (p === 'bottom-left') { w.style.bottom = px; w.style.left = px; }
+        else if (p === 'top-right') { w.style.top = px; w.style.right = px; }
+        else { w.style.top = px; w.style.left = px; }
+        w.style.alignItems = (p === 'bottom-right' || p === 'top-right') ? 'flex-end' : 'flex-start';
+      });
+    }
+    applyPanelPosition(wrap);
+
+    storageGet(PANEL_OPEN_KEY).then(function (open) {
+      if (open) openPanel();
+    });
+
     // ── Panel open / close ──
     function openPanel() {
       panel.classList.add('open');
@@ -1097,7 +1156,9 @@
       if ((e.ctrlKey || e.metaKey) && e.key === 'v') {
         e.preventDefault();
         e.stopPropagation();
-        pasteClipboard(canvas);
+        storageGet(SHORTCUT_PASTE_ENABLED_KEY).then(function (enabled) {
+          if (enabled !== false) pasteClipboard(canvas);
+        });
       }
     }, true);
   }
@@ -1156,8 +1217,21 @@
         return false;
       }
 
-      if (tryHandle()) return false;
-      // Canvas may appear after a short delay (noVNC); give the frame one retry
+      if (msg.action === 'sendText' && text) {
+        getMinPasteLength().then(function (minLen) {
+          if (minLen > 0 && text.length < minLen) {
+            sendResponse({ ok: false, error: 'Paste too short (min ' + minLen + ' characters).' });
+            return;
+          }
+          if (tryHandle()) return;
+          setTimeout(function () {
+            if (tryHandle()) return;
+            sendResponse({ ok: false, error: 'No target to paste into. Focus a noVNC console or a text field in the tab.' });
+          }, 150);
+        });
+        return true;
+      }
+      if (tryHandle()) return true;
       setTimeout(function () {
         if (tryHandle()) return;
         sendResponse({ ok: false, error: 'No target to paste into. Focus a noVNC console or a text field in the tab.' });

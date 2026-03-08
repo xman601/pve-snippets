@@ -3,7 +3,9 @@
 
   const SNIPPETS_KEY = 'pmx_snippets_v1';
   const PASTE_DRAFT_KEY = 'pmx_paste_draft';
-  const MAX_SNIPPETS = 50;
+  const POPUP_DEFAULT_TAB_KEY = 'pmx_popup_default_tab';
+  const MIN_PASTE_LENGTH_KEY = 'pmx_min_paste_length';
+  const MAX_SNIPPETS = 200;
 
   const popupSendBtn = document.getElementById('popup-send-btn');
   const popupPasteText = document.getElementById('pmx-textarea');
@@ -55,6 +57,23 @@
     });
   }
 
+  function storageGet(key) {
+    return new Promise(function(resolve) {
+      try {
+        const api = typeof chrome !== 'undefined' && chrome.storage && chrome.storage.local
+          ? chrome.storage.local
+          : typeof browser !== 'undefined' && browser.storage && browser.storage.local
+            ? browser.storage.local
+            : null;
+        if (api) {
+          api.get([key], function(res) { resolve(res[key]); });
+          return;
+        }
+      } catch (_) { }
+      resolve(undefined);
+    });
+  }
+
   function setPasteDraft(text) {
     try {
       if (typeof chrome !== 'undefined' && chrome.storage && chrome.storage.local) {
@@ -77,7 +96,7 @@
   }
 
   const api = typeof chrome !== 'undefined' && chrome.runtime ? chrome : typeof browser !== 'undefined' && browser.runtime ? browser : null;
-  const settingsUrl = api ? api.runtime.getURL('import.html') : '#';
+  const settingsUrl = api ? api.runtime.getURL('settings.html') : '#';
   if (cpSettingsBtn) {
     cpSettingsBtn.href = settingsUrl;
     cpSettingsBtn.target = '_blank';
@@ -312,8 +331,14 @@
         setPasteHint('Enter or paste text above, then click Send.', true);
         return;
       }
-      setPasteHint('Pasting…');
-      sendToContentScript({ action: 'sendText', text: text }).then(function(r) {
+      storageGet(MIN_PASTE_LENGTH_KEY).then(function(minVal) {
+        const min = Math.max(0, Math.min(1000, Number(minVal) || 0));
+        if (min > 0 && text.length < min) {
+          setPasteHint('Paste too short (min ' + min + ' characters).', true);
+          return;
+        }
+        setPasteHint('Pasting…');
+        sendToContentScript({ action: 'sendText', text: text }).then(function(r) {
         if (r.ok) {
           setPasteHint('Pasted ' + text.length + ' characters.');
           popupPasteText.value = '';
@@ -325,6 +350,7 @@
             : err;
           setPasteHint(hint, true);
         }
+      });
       });
     });
   }
@@ -340,6 +366,10 @@
 
   if (tabPaste) tabPaste.addEventListener('click', function() { setTab('paste'); });
   if (tabSnippets) tabSnippets.addEventListener('click', function() { setTab('snippets'); });
+
+  storageGet(POPUP_DEFAULT_TAB_KEY).then(function(tab) {
+    setTab(tab === 'snippets' ? 'snippets' : 'paste');
+  });
 
   if (cpSearchInput) {
     cpSearchInput.addEventListener('input', function() { renderSnippetList(); });
