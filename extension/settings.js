@@ -11,6 +11,7 @@
   const PANEL_OPEN_KEY = 'pmx_panel_open_by_default';
   const PANEL_POSITION_KEY = 'pmx_panel_position';
   const MIN_PASTE_LENGTH_KEY = 'pmx_min_paste_length';
+  const COMPAT_MODE_KEY = 'pmx_compat_mode';
   const MAX_SNIPPETS = 200;
   const DEFAULT_KEYSTROKE_DELAY_MS = 20;
   const DEFAULT_FIRST_CHAR_DELAY_MS = 40;
@@ -22,6 +23,7 @@
   const settingsKeystrokeDelay = document.getElementById('settings-keystroke-delay');
   const settingsFirstCharDelay = document.getElementById('settings-first-char-delay');
   const settingsEnterDelay = document.getElementById('settings-enter-delay');
+  const settingsCompatMode = document.getElementById('settings-compat-mode');
   const settingsShortcutPaste = document.getElementById('settings-shortcut-paste');
   const settingsPopupDefaultTab = document.getElementById('settings-popup-default-tab');
   const settingsPanelOpen = document.getElementById('settings-panel-open');
@@ -68,6 +70,7 @@
       storageGet(KEYSTROKE_DELAY_KEY),
       storageGet(FIRST_CHAR_DELAY_KEY),
       storageGet(ENTER_DELAY_KEY),
+      storageGet(COMPAT_MODE_KEY),
       storageGet(SHORTCUT_PASTE_ENABLED_KEY),
       storageGet(POPUP_DEFAULT_TAB_KEY),
       storageGet(PANEL_OPEN_KEY),
@@ -90,16 +93,17 @@
         const ms = Number.isFinite(n) && n >= 0 ? Math.min(300, n) : DEFAULT_ENTER_DELAY_MS;
         settingsEnterDelay.value = String(ms);
       }
-      if (settingsShortcutPaste) settingsShortcutPaste.checked = results[4] !== false;
-      if (settingsPopupDefaultTab) settingsPopupDefaultTab.value = (results[5] === 'snippets' ? 'snippets' : 'paste');
-      if (settingsPanelOpen) settingsPanelOpen.checked = Boolean(results[6]);
+      if (settingsCompatMode) settingsCompatMode.checked = Boolean(results[4]);
+      if (settingsShortcutPaste) settingsShortcutPaste.checked = results[5] !== false;
+      if (settingsPopupDefaultTab) settingsPopupDefaultTab.value = (results[6] === 'snippets' ? 'snippets' : 'paste');
+      if (settingsPanelOpen) settingsPanelOpen.checked = Boolean(results[7]);
       if (settingsPanelPosition) {
-        const pos = results[7];
+        const pos = results[8];
         const v = (pos === 'bottom-left' || pos === 'top-right' || pos === 'top-left') ? pos : 'bottom-right';
         settingsPanelPosition.value = v;
       }
       if (settingsMinPasteLength) {
-        const n = Number(results[8]);
+        const n = Number(results[9]);
         const min = Number.isFinite(n) && n >= 0 ? Math.min(1000, n) : 0;
         settingsMinPasteLength.value = String(min);
       }
@@ -142,6 +146,11 @@
     settingsEnterDelay.addEventListener('input', function () {
       const val = Math.max(0, Math.min(300, Number(settingsEnterDelay.value) || DEFAULT_ENTER_DELAY_MS));
       storageSet(ENTER_DELAY_KEY, val);
+    });
+  }
+  if (settingsCompatMode) {
+    settingsCompatMode.addEventListener('change', function () {
+      storageSet(COMPAT_MODE_KEY, settingsCompatMode.checked);
     });
   }
   if (settingsShortcutPaste) {
@@ -302,10 +311,85 @@
     });
   }
 
+  // Sidebar nav: switch settings panel
+  const PANEL_IDS = ['paste', 'backup', 'snippets'];
+  function showPanel(panelId) {
+    if (panelId === 'panel') panelId = 'paste';
+    if (!PANEL_IDS.includes(panelId)) panelId = 'paste';
+    document.querySelectorAll('.settings-nav-item').forEach(function (btn) {
+      btn.classList.toggle('active', btn.getAttribute('data-panel') === panelId);
+      btn.setAttribute('aria-current', btn.classList.contains('active') ? 'page' : null);
+    });
+    document.querySelectorAll('.settings-panel').forEach(function (el) {
+      el.classList.toggle('active', el.id === 'panel-' + panelId);
+    });
+    try {
+      window.history.replaceState(null, '', '#' + panelId);
+    } catch (_) {}
+  }
+  document.querySelectorAll('.settings-nav-item').forEach(function (btn) {
+    btn.addEventListener('click', function () {
+      showPanel(btn.getAttribute('data-panel') || 'paste');
+    });
+  });
+  var hash = (window.location.hash || '').replace(/^#/, '');
+  if (hash) showPanel(hash);
+
   const versionEl = document.getElementById('version-label');
   const runtime = typeof chrome !== 'undefined' && chrome.runtime ? chrome.runtime : typeof browser !== 'undefined' && browser.runtime ? browser.runtime : null;
   if (versionEl && runtime && runtime.getManifest) {
     const manifest = runtime.getManifest();
     versionEl.textContent = (manifest.version || '');
   }
+
+  // Click-to-show tooltips for .setting-info
+  (function () {
+    var popover = document.createElement('div');
+    popover.className = 'setting-info-popover';
+    popover.setAttribute('role', 'tooltip');
+    document.body.appendChild(popover);
+
+    function hidePopover() {
+      popover.classList.remove('visible');
+    }
+
+    function showPopover(text, anchor) {
+      popover.textContent = text;
+      popover.classList.add('visible');
+      var rect = anchor.getBoundingClientRect();
+      var popRect = popover.getBoundingClientRect();
+      var gap = 6;
+      var left = rect.left;
+      var top = rect.bottom + gap;
+      if (left + popRect.width > window.innerWidth) left = window.innerWidth - popRect.width - 8;
+      if (left < 8) left = 8;
+      if (top + popRect.height > window.innerHeight - 8) {
+        top = rect.top - popRect.height - gap;
+      }
+      if (top < 8) top = 8;
+      popover.style.left = left + 'px';
+      popover.style.top = top + 'px';
+    }
+
+    document.querySelectorAll('.setting-info').forEach(function (el) {
+      el.addEventListener('click', function (e) {
+        e.preventDefault();
+        e.stopPropagation();
+        var text = el.getAttribute('title') || '';
+        if (!text) return;
+        if (popover.classList.contains('visible') && popover.textContent === text) {
+          hidePopover();
+          return;
+        }
+        showPopover(text, el);
+      });
+    });
+
+    document.addEventListener('click', function () {
+      hidePopover();
+    });
+    document.addEventListener('keydown', function (e) {
+      if (e.key === 'Escape') hidePopover();
+    });
+  })();
 })();

@@ -13,10 +13,16 @@
   const PANEL_OPEN_KEY = 'pmx_panel_open_by_default';
   const PANEL_POSITION_KEY = 'pmx_panel_position';
   const MIN_PASTE_LENGTH_KEY = 'pmx_min_paste_length';
+  const COMPAT_MODE_KEY = 'pmx_compat_mode';
   const MAX_SNIPPETS = 200;
   const DEFAULT_KEYSTROKE_DELAY_MS = 20;
   const DEFAULT_FIRST_CHAR_DELAY_MS = 40;
   const DEFAULT_ENTER_DELAY_MS = 0;
+  const COMPAT_MIN_CHARS = 500;
+  const COMPAT_KEYSTROKE_MS = 40;
+  const COMPAT_FIRST_CHAR_MS = 80;
+  const COMPAT_CHUNK_CHARS = 400;
+  const COMPAT_CHUNK_PAUSE_MS = 150;
 
   const THEME = {
     bg: '#141414',
@@ -148,6 +154,10 @@
     });
   }
 
+  function getCompatMode() {
+    return storageGet(COMPAT_MODE_KEY).then(function (val) { return Boolean(val); });
+  }
+
   function getMinPasteLength() {
     return storageGet(MIN_PASTE_LENGTH_KEY).then(function (val) {
       const n = Number(val);
@@ -161,10 +171,14 @@
     canvas.dispatchEvent(new KeyboardEvent('keyup',  { key: 'Enter', code: 'Enter', keyCode: 13, which: 13, bubbles: true, cancelable: true }));
   }
 
-  function sendText(canvas, text, delay, firstCharDelayMs, enterDelayMs) {
-    const delayMs = delay != null && Number.isFinite(Number(delay)) ? Math.max(0, Number(delay)) : DEFAULT_KEYSTROKE_DELAY_MS;
-    const firstDelay = firstCharDelayMs != null && Number.isFinite(Number(firstCharDelayMs)) ? Math.max(0, Math.min(200, Number(firstCharDelayMs))) : DEFAULT_FIRST_CHAR_DELAY_MS;
+  function sendText(canvas, text, delay, firstCharDelayMs, enterDelayMs, compatLongPaste) {
+    let delayMs = delay != null && Number.isFinite(Number(delay)) ? Math.max(0, Number(delay)) : DEFAULT_KEYSTROKE_DELAY_MS;
+    let firstDelay = firstCharDelayMs != null && Number.isFinite(Number(firstCharDelayMs)) ? Math.max(0, Math.min(200, Number(firstCharDelayMs))) : DEFAULT_FIRST_CHAR_DELAY_MS;
     const afterEnterMs = enterDelayMs != null && Number.isFinite(Number(enterDelayMs)) ? Math.max(0, Math.min(300, Number(enterDelayMs))) : DEFAULT_ENTER_DELAY_MS;
+    if (compatLongPaste) {
+      delayMs = Math.max(delayMs, COMPAT_KEYSTROKE_MS);
+      firstDelay = Math.max(firstDelay, COMPAT_FIRST_CHAR_MS);
+    }
     releasePasteKeys(canvas);
     canvas.focus();
     const normalized = text.replace(/\r\n/g, '\n');
@@ -188,15 +202,20 @@
       } else {
         sendChar(canvas, char);
         i++;
-        setTimeout(sendNext, delayMs);
+        let nextDelay = delayMs;
+        if (compatLongPaste && i > 0 && i % COMPAT_CHUNK_CHARS === 0) {
+          nextDelay += COMPAT_CHUNK_PAUSE_MS;
+        }
+        setTimeout(sendNext, nextDelay);
       }
     }
     setTimeout(sendNext, firstDelay);
   }
 
   function sendTextWithStoredDelay(canvas, text) {
-    Promise.all([getKeystrokeDelayMs(), getFirstCharDelayMs(), getEnterDelayMs()]).then(function (vals) {
-      sendText(canvas, text, vals[0], vals[1], vals[2]);
+    Promise.all([getKeystrokeDelayMs(), getFirstCharDelayMs(), getEnterDelayMs(), getCompatMode()]).then(function (vals) {
+      const compatLongPaste = Boolean(vals[3]) && text.length > COMPAT_MIN_CHARS;
+      sendText(canvas, text, vals[0], vals[1], vals[2], compatLongPaste);
     });
   }
 

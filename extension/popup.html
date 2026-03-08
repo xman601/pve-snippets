@@ -94,16 +94,20 @@
       }
       .pmx-paste-view #pmx-textarea::placeholder { color: var(--pmx-textMuted); }
 
-      .pmx-footer {
-        padding: 8px 10px;
+      /* Shared footer bar (Paste and Snippets tabs) */
+      .pmx-footer,
+      .pmx-snip-footer {
+        padding: 10px 12px;
         border-top: 1px solid var(--pmx-border);
+        background: var(--pmx-bg);
         display: flex;
-        justify-content: space-between;
         align-items: center;
-        gap: 6px;
+        justify-content: space-between;
+        gap: 8px;
         flex-shrink: 0;
       }
       .pmx-footer-btns { display: flex; align-items: center; gap: 6px; flex-shrink: 0; }
+      .pmx-footer-spacer { flex: 1; min-width: 0; }
 
       .pmx-save-snip-btn {
         background: transparent;
@@ -269,29 +273,20 @@
         line-height: 1.7;
       }
 
-      .pmx-snip-footer {
-        padding: 9px 12px;
-        border-top: 1px solid var(--pmx-border);
-        background: var(--pmx-bg);
-        display: flex;
-        align-items: center;
-        justify-content: flex-end;
-        gap: 10px;
-        flex-shrink: 0;
-      }
-      .pmx-snip-footer-inner { min-width: 0; }
       .pmx-snip-hint { font-size: 9px; color: var(--pmx-textMuted); letter-spacing: 0.08em; }
       .pmx-snip-new-btn {
         background: var(--pmx-accent);
+        color: var(--pmx-text);
         border: none;
         border-radius: 4px;
-        color: var(--pmx-text);
-        font-size: 11px;
-        font-weight: 600;
-        padding: 7px 12px;
+        font-family: inherit;
+        font-size: 9px;
+        font-weight: 500;
+        letter-spacing: 0.08em;
+        padding: 5px 12px;
         cursor: pointer;
         white-space: nowrap;
-        transition: background 0.12s;
+        transition: background 0.12s, opacity 0.12s;
         -webkit-appearance: none;
         appearance: none;
       }
@@ -501,7 +496,6 @@
       }
       .pmx-snip-footer-left a { color: var(--pmx-textMuted); text-decoration: none; }
       .pmx-snip-footer-left a:hover { color: var(--pmx-accent); }
-      .pmx-snip-new-btn { font-size: 10px; font-weight: 600; letter-spacing: 0.08em; padding: 6px 12px; }
     </style>
   </head>
   <body>
@@ -558,6 +552,7 @@
         </div>
       </div>
       <div class="pmx-snip-footer">
+        <span class="pmx-footer-spacer"></span>
         <button type="button" class="pmx-snip-new-btn" id="popup-new-snippet-btn">+ New snippet</button>
       </div>
     </div>
