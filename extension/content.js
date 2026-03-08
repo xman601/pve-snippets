@@ -395,6 +395,15 @@
       }
       #pmx-send:hover { background: ${THEME.accent}; }
 
+      #pmx-clear {
+        background: transparent; border: 1px solid ${THEME.border}; border-radius: 4px;
+        color: ${THEME.textMuted}; font-family: inherit; font-size: 9px; font-weight: 500;
+        letter-spacing: 0.06em; padding: 5px 10px; cursor: pointer; white-space: nowrap;
+        transition: border-color 0.12s, color 0.12s;
+        -webkit-appearance: none; appearance: none;
+      }
+      #pmx-clear:hover { border-color: ${THEME.accent}; color: ${THEME.accent}; }
+
       /* Save bar (slides in below footer) */
       #pmx-save-bar {
         display: none; align-items: center; gap: 6px; padding: 0 10px 10px;
@@ -652,11 +661,17 @@
     saveSnipBtn.id = 'pmx-save-snip-btn';
     saveSnipBtn.textContent = 'Save as Snippet';
 
+    const clearBtn = document.createElement('button');
+    clearBtn.type = 'button';
+    clearBtn.id = 'pmx-clear';
+    clearBtn.textContent = 'Clear';
+
     const sendBtn = document.createElement('button');
     sendBtn.type = 'button';
     sendBtn.id = 'pmx-send';
     sendBtn.innerHTML = 'Paste into VM ' + CHEV_R;
 
+    footerBtns.appendChild(clearBtn);
     footerBtns.appendChild(saveSnipBtn);
     footerBtns.appendChild(sendBtn);
     footer.appendChild(kbdHint);
@@ -720,6 +735,10 @@
     saveBarInput.addEventListener('keydown', (e) => {
       if (e.key === 'Enter') { e.preventDefault(); saveBarConfirm.click(); }
       if (e.key === 'Escape') closeSaveBar();
+    });
+
+    clearBtn.addEventListener('click', () => {
+      textarea.value = '';
     });
 
     sendBtn.addEventListener('click', () => {

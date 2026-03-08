@@ -2,7 +2,7 @@
 <html lang="en">
   <head>
     <meta charset="utf-8">
-    <title>Import snippets – PVE Snippets</title>
+    <title>Settings & Import – PVE Snippets</title>
     <link rel="icon" type="image/png" sizes="48x48" href="icons/icon48.png">
     <link rel="icon" type="image/png" sizes="16x16" href="icons/icon16.png">
     <style>
@@ -72,6 +72,49 @@
         text-transform: uppercase;
         letter-spacing: 0.1em;
         color: var(--text-muted);
+      }
+
+      /* ── Settings ────────────────────────────────────────────── */
+      .settings-section {
+        padding: 18px 24px;
+        border-bottom: 1px solid var(--border);
+        flex-shrink: 0;
+      }
+      .settings-title {
+        font-size: 11px;
+        font-weight: 700;
+        text-transform: uppercase;
+        letter-spacing: 0.07em;
+        color: var(--text-muted);
+        margin-bottom: 12px;
+      }
+      .settings-row {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        padding: 10px 0;
+        border-bottom: 1px solid var(--border);
+      }
+      .settings-row:last-child { border-bottom: none; }
+      .settings-row label { font-size: 13px; cursor: pointer; flex: 1; }
+      .settings-row input[type="checkbox"] {
+        margin: 0;
+        accent-color: var(--accent);
+        cursor: pointer;
+      }
+      .settings-row input[type="number"] {
+        width: 72px;
+        padding: 6px 10px;
+        font-size: 13px;
+        background: var(--bg);
+        border: 1px solid var(--border);
+        border-radius: var(--radius-sm);
+        color: var(--text);
+        text-align: right;
+      }
+      .settings-row input[type="number"]:focus {
+        outline: none;
+        border-color: var(--accent);
       }
 
       /* ── Upload banner ───────────────────────────────────────── */
@@ -396,7 +439,22 @@
     <!-- Header -->
     <div class="top-bar">
       <div class="brand-dot"></div>
-      <span class="brand-name">PVE Snippets</span>
+      <span class="brand-name">PVE Snippets · Settings & Import</span>
+    </div>
+
+    <!-- Settings -->
+    <div class="settings-section">
+      <div class="settings-title">Paste behavior</div>
+      <div class="settings-row">
+        <label for="settings-auto-enter">
+          <input type="checkbox" id="settings-auto-enter" />
+          Auto-hit Enter after paste
+        </label>
+      </div>
+      <div class="settings-row">
+        <label for="settings-keystroke-delay">Delay between keystrokes (ms)</label>
+        <input type="number" id="settings-keystroke-delay" min="0" max="500" step="5" value="20" />
+      </div>
     </div>
 
     <!-- Upload zone -->

@@ -4,273 +4,568 @@
     <meta charset="utf-8">
     <title>PVE Snippets</title>
     <style>
+      /* Match noVNC panel theme (content.js THEME) */
       :root {
         color-scheme: dark;
-        --popup-bg: #0d0d0d;
-        --popup-surface: #161616;
-        --popup-surface-hover: #1e1e1e;
-        --popup-border: #2d2d2d;
-        --popup-text: #e8e8e8;
-        --popup-text-muted: #737373;
-        --popup-accent: #ea580c;
-        --popup-accent-hover: #f97316;
-        --popup-radius: 10px;
-        --popup-radius-sm: 6px;
+        --pmx-bg: #141414;
+        --pmx-bgPanel: #1a1a1a;
+        --pmx-border: #2a2a2a;
+        --pmx-text: #fff;
+        --pmx-textMuted: #8a8a8a;
+        --pmx-accent: #f60;
       }
-      * {
-        box-sizing: border-box;
-      }
+      * { box-sizing: border-box; }
       body {
         margin: 0;
         padding: 0;
-        font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
-        font-size: 13px;
-        background: var(--popup-bg);
-        color: var(--popup-text);
-        width: 300px;
-        min-height: 320px;
-      }
-
-      .header {
-        padding: 14px 16px 10px;
-        border-bottom: 1px solid var(--popup-border);
-      }
-      .header h1 {
-        margin: 0;
-        font-size: 15px;
-        font-weight: 600;
-        letter-spacing: -0.02em;
-      }
-      .header p {
-        margin: 6px 0 0;
+        font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
         font-size: 12px;
-        color: var(--popup-text-muted);
-        line-height: 1.4;
-      }
-      .header code {
-        font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
-        font-size: 11px;
-        background: var(--popup-surface);
-        padding: 2px 5px;
-        border-radius: 4px;
-        color: var(--popup-text-muted);
+        background: var(--pmx-bgPanel);
+        color: var(--pmx-text);
+        width: 380px;
+        min-height: 400px;
+        max-height: 520px;
+        display: flex;
+        flex-direction: column;
+        -webkit-font-smoothing: antialiased;
       }
 
-      /* Primary: Paste into page */
-      .paste-card {
-        margin: 12px 16px 20px;
-        padding: 12px;
-        background: var(--popup-surface);
-        border: 1px solid var(--popup-border);
-        border-radius: var(--popup-radius);
+      /* Tab header (like #pmx-header) */
+      .pmx-header {
+        display: flex;
+        align-items: stretch;
+        background: var(--pmx-bg);
+        border-bottom: 1px solid var(--pmx-border);
+        border-radius: 6px 6px 0 0;
+        overflow: hidden;
+        flex-shrink: 0;
       }
-      .paste-card .label {
-        display: block;
-        font-size: 11px;
-        font-weight: 600;
-        text-transform: uppercase;
-        letter-spacing: 0.06em;
-        color: var(--popup-text-muted);
-        margin-bottom: 8px;
-      }
-      #popup-paste-text {
-        width: 100%;
-        margin: 0 0 10px;
-        padding: 10px 12px;
-        font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
-        font-size: 12px;
-        line-height: 1.45;
-        background: var(--popup-bg);
-        color: var(--popup-text);
-        border: 1px solid var(--popup-border);
-        border-radius: var(--popup-radius-sm);
-        resize: vertical;
-        min-height: 72px;
-      }
-      #popup-paste-text::placeholder {
-        color: var(--popup-text-muted);
-      }
-      #popup-paste-text:focus {
-        outline: none;
-        border-color: var(--popup-accent);
-      }
-      #popup-send-btn {
-        width: 100%;
-        padding: 10px 14px;
-        font-size: 13px;
-        font-weight: 500;
-        background: var(--popup-accent);
-        color: #fff;
-        border: none;
-        border-radius: var(--popup-radius-sm);
-        cursor: pointer;
-        transition: background 0.15s;
-      }
-      #popup-send-btn:hover {
-        background: var(--popup-accent-hover);
-      }
-      #popup-send-btn:active {
-        transform: scale(0.99);
-      }
-      #popup-paste-hint {
-        display: block;
-        font-size: 11px;
-        color: var(--popup-text-muted);
-        margin-top: 8px;
-        line-height: 1.35;
-      }
-
-      /* Options */
-      .options {
-        padding: 4px 16px 20px;
-      }
-      .option-row {
+      .pmx-tabs { display: flex; align-items: stretch; flex: 1; }
+      .pmx-tab {
+        flex: 1;
         display: flex;
         align-items: center;
-        gap: 10px;
-        padding: 10px 12px;
-        background: var(--popup-surface);
-        border: 1px solid var(--popup-border);
-        border-radius: var(--popup-radius-sm);
+        justify-content: center;
+        gap: 7px;
+        padding: 13px 10px 11px;
+        background: transparent;
+        border: none;
+        border-bottom: 2px solid transparent;
+        margin-bottom: -1px;
+        font-family: inherit;
+        font-size: 11px;
+        font-weight: 500;
+        letter-spacing: 0.12em;
+        text-transform: uppercase;
+        color: var(--pmx-textMuted);
         cursor: pointer;
-        font-size: 13px;
-        margin-bottom: 10px;
+        transition: color 0.15s, border-color 0.15s;
+        -webkit-appearance: none;
+        appearance: none;
       }
-      .option-row:hover {
-        background: var(--popup-surface-hover);
+      .pmx-tab + .pmx-tab { border-left: 1px solid var(--pmx-border); }
+      .pmx-tab:hover { color: var(--pmx-textMuted); }
+      .pmx-tab.active { color: var(--pmx-text); border-bottom-color: var(--pmx-accent); }
+
+      /* Views */
+      .pmx-view {
+        display: none;
+        flex-direction: column;
+        flex: 1;
+        min-height: 0;
       }
-      .option-row:last-of-type {
-        margin-bottom: 0;
+      .pmx-view.active { display: flex; }
+
+      /* Paste view – textarea fills remaining space */
+      .pmx-paste-view #pmx-textarea {
+        flex: 1;
+        min-height: 0;
+        width: 100%;
+        background: transparent;
+        border: none;
+        outline: none;
+        resize: none;
+        font-family: inherit;
+        font-size: 12px;
+        color: var(--pmx-textMuted);
+        padding: 11px 12px;
+        display: block;
+        caret-color: var(--pmx-accent);
       }
-      .option-row input[type="checkbox"] {
-        margin: 0;
+      .pmx-paste-view #pmx-textarea::placeholder { color: var(--pmx-textMuted); }
+
+      .pmx-footer {
+        padding: 8px 10px;
+        border-top: 1px solid var(--pmx-border);
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        gap: 6px;
+        flex-shrink: 0;
+      }
+      .pmx-footer-btns { display: flex; align-items: center; gap: 6px; flex-shrink: 0; }
+
+      .pmx-save-snip-btn {
+        background: transparent;
+        border: 1px solid var(--pmx-border);
+        border-radius: 4px;
+        color: var(--pmx-textMuted);
+        font-family: inherit;
+        font-size: 9px;
+        font-weight: 500;
+        letter-spacing: 0.08em;
+        padding: 5px 10px;
         cursor: pointer;
-        accent-color: var(--popup-accent);
+        white-space: nowrap;
+        transition: border-color 0.12s, color 0.12s;
+        -webkit-appearance: none;
+        appearance: none;
       }
-      .option-row.option-row-delay {
-        cursor: default;
-        flex-wrap: wrap;
+      .pmx-save-snip-btn:hover { border-color: var(--pmx-accent); color: var(--pmx-accent); }
+
+      .pmx-send {
+        background: var(--pmx-accent);
+        color: var(--pmx-text);
+        border: none;
+        border-radius: 4px;
+        font-family: inherit;
+        font-size: 9px;
+        font-weight: 500;
+        letter-spacing: 0.08em;
+        padding: 5px 12px;
+        cursor: pointer;
+        white-space: nowrap;
+        transition: background 0.12s;
+        -webkit-appearance: none;
+        appearance: none;
       }
-      .option-row-delay .option-label {
+      .pmx-send:hover { opacity: 0.9; }
+
+      .pmx-clear-btn {
+        background: transparent;
+        border: 1px solid var(--pmx-border);
+        border-radius: 4px;
+        color: var(--pmx-textMuted);
+        font-family: inherit;
+        font-size: 9px;
+        font-weight: 500;
+        letter-spacing: 0.06em;
+        padding: 5px 10px;
+        cursor: pointer;
+        white-space: nowrap;
+        transition: border-color 0.12s, color 0.12s;
+        -webkit-appearance: none;
+        appearance: none;
+      }
+      .pmx-clear-btn:hover { border-color: var(--pmx-accent); color: var(--pmx-accent); }
+
+      .pmx-paste-hint {
+        font-size: 9px;
+        color: var(--pmx-textMuted);
         flex: 1;
         min-width: 0;
-      }
-      .option-row-delay input[type="number"] {
-        width: 64px;
-        padding: 4px 8px;
-        font-size: 13px;
-        background: var(--popup-bg);
-        border: 1px solid var(--popup-border);
-        border-radius: var(--popup-radius-sm);
-        color: var(--popup-text);
-        text-align: right;
-      }
-      .option-row-delay input[type="number"]:focus {
-        outline: none;
-        border-color: var(--popup-accent);
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
       }
 
-      /* Snippets */
-      .section {
-        padding: 18px 16px 16px;
-        border-top: 1px solid var(--popup-border);
+      /* Snippets view */
+      .pmx-snip-scroll {
+        max-height: 220px;
+        overflow-y: auto;
+        padding: 8px;
+        display: flex;
+        flex-direction: column;
+        gap: 4px;
+        flex: 1;
+        min-height: 0;
       }
-      .section-title {
+      .pmx-snip-scroll::-webkit-scrollbar { width: 4px; }
+      .pmx-snip-scroll::-webkit-scrollbar-thumb { background: var(--pmx-border); border-radius: 2px; }
+
+      .pmx-snip-row {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        padding: 8px 10px;
+        border-radius: 4px;
+        border: 1px solid var(--pmx-border);
+        background: var(--pmx-bg);
+        transition: border-color 0.12s, background 0.12s;
+      }
+      .pmx-snip-row:hover { border-color: var(--pmx-border); background: var(--pmx-bgPanel); }
+
+      .pmx-snip-info { flex: 1; min-width: 0; }
+      .pmx-snip-name {
+        font-size: 10px;
+        color: var(--pmx-accent);
+        letter-spacing: 0.08em;
+        text-transform: uppercase;
+        margin-bottom: 3px;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+      }
+      .pmx-snip-preview {
+        font-size: 10px;
+        color: var(--pmx-textMuted);
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+      }
+
+      .pmx-snip-actions {
+        flex-shrink: 0;
+        display: flex;
+        align-items: center;
+        gap: 4px;
+      }
+      .pmx-snip-actions button {
+        height: 24px;
+        min-height: 24px;
+        box-sizing: border-box;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        font-family: inherit;
+        cursor: pointer;
+        -webkit-appearance: none;
+        appearance: none;
+      }
+      .pmx-snip-send {
+        background: var(--pmx-accent);
+        border: none;
+        border-radius: 4px;
+        color: var(--pmx-text);
+        font-size: 9px;
+        padding: 0 9px;
+      }
+      .pmx-snip-edit {
+        background: transparent;
+        border: 1px solid var(--pmx-border);
+        border-radius: 3px;
+        color: var(--pmx-textMuted);
+        padding: 0;
+        width: 24px;
+        transition: border-color 0.12s, color 0.12s;
+      }
+      .pmx-snip-edit:hover { border-color: var(--pmx-accent); color: var(--pmx-accent); }
+      .pmx-snip-del {
+        background: transparent;
+        border: none;
+        color: var(--pmx-textMuted);
+        font-size: 14px;
+        padding: 0;
+        width: 28px;
+        transition: color 0.12s;
+      }
+      .pmx-snip-del:hover { color: var(--pmx-accent); }
+
+      .pmx-snip-empty {
+        padding: 24px 12px;
+        text-align: center;
+        font-size: 10px;
+        color: var(--pmx-textMuted);
+        line-height: 1.7;
+      }
+
+      .pmx-snip-footer {
+        padding: 9px 12px;
+        border-top: 1px solid var(--pmx-border);
+        background: var(--pmx-bg);
+        display: flex;
+        align-items: center;
+        justify-content: flex-end;
+        gap: 10px;
+        flex-shrink: 0;
+      }
+      .pmx-snip-footer-inner { min-width: 0; }
+      .pmx-snip-hint { font-size: 9px; color: var(--pmx-textMuted); letter-spacing: 0.08em; }
+      .pmx-snip-new-btn {
+        background: var(--pmx-accent);
+        border: none;
+        border-radius: 4px;
+        color: var(--pmx-text);
         font-size: 11px;
         font-weight: 600;
-        text-transform: uppercase;
-        letter-spacing: 0.06em;
-        color: var(--popup-text-muted);
-        margin-bottom: 8px;
-      }
-      .btn-row {
-        display: flex;
-        gap: 8px;
-      }
-      .btn-row button {
-        flex: 1;
-        padding: 8px 12px;
-        font-size: 12px;
-        font-family: inherit;
-        background: var(--popup-surface);
-        color: var(--popup-text);
-        border: 1px solid var(--popup-border);
-        border-radius: var(--popup-radius-sm);
+        padding: 7px 12px;
         cursor: pointer;
-        transition: background 0.15s, border-color 0.15s;
+        white-space: nowrap;
+        transition: background 0.12s;
+        -webkit-appearance: none;
+        appearance: none;
       }
-      .btn-row button:hover {
-        background: var(--popup-surface-hover);
-        border-color: var(--popup-accent);
+      .pmx-snip-new-btn:hover { opacity: 0.9; }
+      .pmx-snip-footer-btn-secondary {
+        background: transparent;
+        border: 1px solid var(--pmx-border);
+        color: var(--pmx-textMuted);
+        font-size: 10px;
+        padding: 5px 10px;
       }
-      #export-hint {
-        font-size: 11px;
-        color: var(--popup-text-muted);
-        margin-top: 8px;
+      .pmx-snip-footer-btn-secondary:hover { border-color: var(--pmx-accent); color: var(--pmx-accent); }
+      .pmx-snip-footer-links {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        font-size: 10px;
       }
-
-      /* Footer */
-      .popup-footer {
-        margin-top: auto;
-        padding: 16px 16px 14px;
-        border-top: 1px solid var(--popup-border);
-        font-size: 11px;
-        color: var(--popup-text-muted);
-        line-height: 1.5;
-      }
-      .popup-footer a {
-        color: var(--popup-accent);
+      .pmx-snip-footer-links a {
+        color: var(--pmx-textMuted);
         text-decoration: none;
       }
-      .popup-footer a:hover {
-        text-decoration: underline;
+      .pmx-snip-footer-links a:hover { color: var(--pmx-accent); }
+
+      /* Add/Edit form */
+      .pmx-snippet-form {
+        padding: 10px;
+        margin: 0 8px 8px;
+        background: var(--pmx-bg);
+        border: 1px solid var(--pmx-border);
+        border-radius: 4px;
+        display: none;
       }
-      #version-label {
+      .pmx-snippet-form.open { display: block; }
+      .pmx-snippet-form .form-row { margin-bottom: 8px; }
+      .pmx-snippet-form .form-row:last-of-type { margin-bottom: 10px; }
+      .pmx-snippet-form label {
         display: block;
+        font-size: 9px;
+        font-weight: 600;
+        text-transform: uppercase;
+        letter-spacing: 0.08em;
+        color: var(--pmx-textMuted);
         margin-bottom: 4px;
       }
+      .pmx-snippet-form input,
+      .pmx-snippet-form textarea {
+        width: 100%;
+        padding: 6px 8px;
+        font-size: 11px;
+        font-family: inherit;
+        background: var(--pmx-bgPanel);
+        border: 1px solid var(--pmx-border);
+        border-radius: 4px;
+        color: var(--pmx-text);
+      }
+      .pmx-snippet-form textarea {
+        min-height: 56px;
+        resize: vertical;
+      }
+      .pmx-snippet-form .form-actions { display: flex; gap: 6px; justify-content: flex-end; }
+      .pmx-snippet-form .form-actions button {
+        padding: 5px 10px;
+        font-size: 9px;
+        font-family: inherit;
+        border-radius: 4px;
+        cursor: pointer;
+        -webkit-appearance: none;
+        appearance: none;
+      }
+      .pmx-snippet-form .form-actions .save {
+        background: var(--pmx-accent);
+        color: var(--pmx-text);
+        border: none;
+      }
+      .pmx-snippet-form .form-actions .cancel {
+        background: transparent;
+        color: var(--pmx-textMuted);
+        border: 1px solid var(--pmx-border);
+      }
+
+      /* Popup footer (version + links) */
+      .popup-footer {
+        padding: 8px 12px;
+        border-top: 1px solid var(--pmx-border);
+        font-size: 9px;
+        color: var(--pmx-textMuted);
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        flex-shrink: 0;
+      }
+      .popup-footer a {
+        color: var(--pmx-textMuted);
+        text-decoration: none;
+      }
+      .popup-footer a:hover { color: var(--pmx-accent); }
+
+      /* Command palette header */
+      .cp-title-bar {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        position: relative;
+        padding: 12px 14px 10px;
+        border-bottom: 1px solid var(--pmx-border);
+        flex-shrink: 0;
+      }
+      .cp-settings-btn {
+        position: absolute;
+        top: 50%;
+        right: 8px;
+        transform: translateY(-50%);
+        width: 28px;
+        height: 28px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        background: none;
+        border: none;
+        border-radius: 4px;
+        color: var(--pmx-textMuted);
+        cursor: pointer;
+        -webkit-appearance: none;
+        appearance: none;
+        transition: color 0.15s, background 0.15s;
+      }
+      .cp-settings-btn:hover {
+        color: var(--pmx-accent);
+        background: var(--pmx-bg);
+      }
+      .cp-settings-btn svg { width: 16px; height: 16px; display: block; }
+      .cp-title {
+        font-size: 11px;
+        font-weight: 600;
+        letter-spacing: 0.14em;
+        text-transform: uppercase;
+        color: var(--pmx-textMuted);
+      }
+      .cp-search-wrap {
+        padding: 8px 12px 6px;
+        border-bottom: 1px solid var(--pmx-border);
+        flex-shrink: 0;
+      }
+      .cp-search {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        padding: 8px 10px;
+        background: var(--pmx-bg);
+        border: 1px solid var(--pmx-border);
+        border-radius: 4px;
+      }
+      .cp-search:focus-within { border-color: var(--pmx-accent); outline: none; }
+      .cp-search-icon {
+        flex-shrink: 0;
+        color: var(--pmx-textMuted);
+      }
+      .cp-search-icon svg { width: 14px; height: 14px; display: block; }
+      .cp-search input {
+        flex: 1;
+        min-width: 0;
+        background: none;
+        border: none;
+        outline: none;
+        font-family: inherit;
+        font-size: 12px;
+        color: var(--pmx-text);
+      }
+      .cp-search input::placeholder { color: var(--pmx-textMuted); }
+
+      /* Tabs below search */
+      .pmx-header { border-radius: 0; }
+      .pmx-tab { padding: 10px 12px; }
+
+      /* Snippet row: numbered, left accent on active */
+      .pmx-snip-row {
+        padding: 10px 12px 10px 10px;
+        gap: 10px;
+        border-radius: 0;
+        border: none;
+        border-left: 3px solid transparent;
+        background: var(--pmx-bg);
+      }
+      .pmx-snip-row:hover,
+      .pmx-snip-row.active {
+        background: var(--pmx-bgPanel);
+        border-left-color: var(--pmx-accent);
+      }
+      .pmx-snip-num {
+        flex-shrink: 0;
+        font-size: 10px;
+        font-weight: 500;
+        color: var(--pmx-textMuted);
+        width: 20px;
+        text-align: right;
+      }
+      .pmx-snip-send { font-size: 9px; font-weight: 600; letter-spacing: 0.06em; padding: 0 10px; }
+      .pmx-snip-edit { width: 26px; }
+      .pmx-snip-edit svg { width: 10px; height: 10px; }
+      .pmx-snip-del { width: 26px; font-size: 12px; }
+
+      .pmx-snip-footer-left {
+        font-size: 9px;
+        color: var(--pmx-textMuted);
+        letter-spacing: 0.06em;
+      }
+      .pmx-snip-footer-left a { color: var(--pmx-textMuted); text-decoration: none; }
+      .pmx-snip-footer-left a:hover { color: var(--pmx-accent); }
+      .pmx-snip-new-btn { font-size: 10px; font-weight: 600; letter-spacing: 0.08em; padding: 6px 12px; }
     </style>
   </head>
   <body>
-    <header class="header">
-      <h1>PVE Snippets</h1>
-      <p>Paste into noVNC or any page. On PVE consoles use <code>Ctrl+V</code> / <code>⌘V</code> or the panel.</p>
+    <div class="cp-title-bar">
+      <span class="cp-title">PVE Snippets</span>
+      <a href="#" id="cp-settings-btn" class="cp-settings-btn" title="Settings" aria-label="Settings">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <circle cx="12" cy="12" r="3"/>
+          <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"/>
+        </svg>
+      </a>
+    </div>
+    <header class="pmx-header">
+      <div class="pmx-tabs">
+        <button type="button" class="pmx-tab active" id="tab-paste" data-tab="paste">Paste</button>
+        <button type="button" class="pmx-tab" id="tab-snippets" data-tab="snippets">Snippets</button>
+      </div>
     </header>
 
-    <main class="paste-card">
-      <span class="label">Paste into page</span>
-      <textarea id="popup-paste-text" placeholder="Type or paste text, then send to the active tab…" rows="3"></textarea>
-      <button type="button" id="popup-send-btn">Paste into page</button>
-      <span class="hint" id="popup-paste-hint">Sends to the active tab (noVNC or focused field).</span>
-    </main>
-
-    <div class="options">
-      <label class="option-row">
-        <input type="checkbox" id="auto-enter" />
-        <span>Auto-hit Enter after paste</span>
-      </label>
-      <div class="option-row option-row-delay">
-        <label for="keystroke-delay" class="option-label">Delay between keystrokes (ms)</label>
-        <input type="number" id="keystroke-delay" min="0" max="500" step="5" value="20" />
+    <div id="view-paste" class="pmx-view active pmx-paste-view">
+      <textarea id="pmx-textarea" placeholder="Type or paste text, then click Send…" rows="5"></textarea>
+      <div class="pmx-footer">
+        <span class="pmx-paste-hint" id="popup-paste-hint"></span>
+        <div class="pmx-footer-btns">
+          <button type="button" class="pmx-clear-btn" id="popup-clear-btn">Clear</button>
+          <button type="button" class="pmx-save-snip-btn" id="popup-save-as-snippet-btn">Save as snippet</button>
+          <button type="button" class="pmx-send" id="popup-send-btn">Send</button>
+        </div>
       </div>
     </div>
 
-    <div class="section">
-      <div class="section-title">Snippets</div>
-      <div class="btn-row">
-        <button type="button" id="export-btn">Export</button>
-        <button type="button" id="import-btn">Import</button>
+    <div id="view-snippets" class="pmx-view">
+      <div class="cp-search-wrap" id="cp-search-wrap">
+        <div class="cp-search">
+          <span class="cp-search-icon" aria-hidden="true">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
+          </span>
+          <input type="text" id="cp-search-input" placeholder="Search snippets..." autocomplete="off" />
+        </div>
       </div>
-      <p class="hint" id="export-hint">Download or import saved snippets. Import opens in a new tab.</p>
+      <div id="popup-snippet-list" class="pmx-snip-scroll" aria-label="Snippet list"></div>
+      <div id="popup-snippet-form" class="pmx-snippet-form">
+        <div class="form-row">
+          <label for="popup-snippet-name">Name</label>
+          <input type="text" id="popup-snippet-name" placeholder="Snippet name" />
+        </div>
+        <div class="form-row">
+          <label for="popup-snippet-text">Content</label>
+          <textarea id="popup-snippet-text" placeholder="Paste or type content…"></textarea>
+        </div>
+        <div class="form-actions">
+          <button type="button" class="cancel" id="popup-snippet-form-cancel">Cancel</button>
+          <button type="button" class="save" id="popup-snippet-form-save">Save</button>
+        </div>
+      </div>
+      <div class="pmx-snip-footer">
+        <button type="button" class="pmx-snip-new-btn" id="popup-new-snippet-btn">+ New snippet</button>
+      </div>
     </div>
 
     <footer class="popup-footer">
       <span id="version-label"></span>
       <a href="https://github.com/xman601/pve-snippets" target="_blank" rel="noopener noreferrer">GitHub</a>
-      &middot;
       <a href="https://github.com/xman601/pve-snippets/blob/main/docs/PRIVACY_POLICY.md" target="_blank" rel="noopener noreferrer">Privacy</a>
-      <br>
-      <small>Data stays on this device.</small>
     </footer>
 
     <script src="popup.js"></script>
