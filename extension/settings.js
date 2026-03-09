@@ -10,7 +10,6 @@
   const POPUP_DEFAULT_TAB_KEY = 'pmx_popup_default_tab';
   const PANEL_OPEN_KEY = 'pmx_panel_open_by_default';
   const PANEL_POSITION_KEY = 'pmx_panel_position';
-  const MIN_PASTE_LENGTH_KEY = 'pmx_min_paste_length';
   const COMPAT_MODE_KEY = 'pmx_compat_mode';
   const MAX_SNIPPETS = 200;
   const DEFAULT_KEYSTROKE_DELAY_MS = 20;
@@ -28,8 +27,6 @@
   const settingsPopupDefaultTab = document.getElementById('settings-popup-default-tab');
   const settingsPanelOpen = document.getElementById('settings-panel-open');
   const settingsPanelPosition = document.getElementById('settings-panel-position');
-  const settingsMinPasteLength = document.getElementById('settings-min-paste-length');
-
   function storageGet(key) {
     return new Promise(function (resolve) {
       try {
@@ -74,8 +71,7 @@
       storageGet(SHORTCUT_PASTE_ENABLED_KEY),
       storageGet(POPUP_DEFAULT_TAB_KEY),
       storageGet(PANEL_OPEN_KEY),
-      storageGet(PANEL_POSITION_KEY),
-      storageGet(MIN_PASTE_LENGTH_KEY)
+      storageGet(PANEL_POSITION_KEY)
     ]).then(function (results) {
       if (settingsAutoEnter) settingsAutoEnter.checked = Boolean(results[0]);
       if (settingsKeystrokeDelay) {
@@ -85,7 +81,7 @@
       }
       if (settingsFirstCharDelay) {
         const n = Number(results[2]);
-        const ms = Number.isFinite(n) && n >= 0 ? Math.min(200, n) : DEFAULT_FIRST_CHAR_DELAY_MS;
+        const ms = Number.isFinite(n) && n >= 0 ? Math.min(1000, n) : DEFAULT_FIRST_CHAR_DELAY_MS;
         settingsFirstCharDelay.value = String(ms);
       }
       if (settingsEnterDelay) {
@@ -101,11 +97,6 @@
         const pos = results[8];
         const v = (pos === 'bottom-left' || pos === 'top-right' || pos === 'top-left') ? pos : 'bottom-right';
         settingsPanelPosition.value = v;
-      }
-      if (settingsMinPasteLength) {
-        const n = Number(results[9]);
-        const min = Number.isFinite(n) && n >= 0 ? Math.min(1000, n) : 0;
-        settingsMinPasteLength.value = String(min);
       }
     });
   }
@@ -128,12 +119,12 @@
   }
   if (settingsFirstCharDelay) {
     settingsFirstCharDelay.addEventListener('change', function () {
-      const val = Math.max(0, Math.min(200, Number(settingsFirstCharDelay.value) || DEFAULT_FIRST_CHAR_DELAY_MS));
+      const val = Math.max(0, Math.min(1000, Number(settingsFirstCharDelay.value) || DEFAULT_FIRST_CHAR_DELAY_MS));
       storageSet(FIRST_CHAR_DELAY_KEY, val);
       settingsFirstCharDelay.value = String(val);
     });
     settingsFirstCharDelay.addEventListener('input', function () {
-      const val = Math.max(0, Math.min(200, Number(settingsFirstCharDelay.value) || DEFAULT_FIRST_CHAR_DELAY_MS));
+      const val = Math.max(0, Math.min(1000, Number(settingsFirstCharDelay.value) || DEFAULT_FIRST_CHAR_DELAY_MS));
       storageSet(FIRST_CHAR_DELAY_KEY, val);
     });
   }
@@ -171,17 +162,6 @@
   if (settingsPanelPosition) {
     settingsPanelPosition.addEventListener('change', function () {
       storageSet(PANEL_POSITION_KEY, settingsPanelPosition.value);
-    });
-  }
-  if (settingsMinPasteLength) {
-    settingsMinPasteLength.addEventListener('change', function () {
-      const val = Math.max(0, Math.min(1000, Number(settingsMinPasteLength.value) || 0));
-      storageSet(MIN_PASTE_LENGTH_KEY, val);
-      settingsMinPasteLength.value = String(val);
-    });
-    settingsMinPasteLength.addEventListener('input', function () {
-      const val = Math.max(0, Math.min(1000, Number(settingsMinPasteLength.value) || 0));
-      storageSet(MIN_PASTE_LENGTH_KEY, val);
     });
   }
   loadSettings();

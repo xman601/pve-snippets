@@ -12,7 +12,6 @@
   const SHORTCUT_PASTE_ENABLED_KEY = 'pmx_shortcut_paste_enabled';
   const PANEL_OPEN_KEY = 'pmx_panel_open_by_default';
   const PANEL_POSITION_KEY = 'pmx_panel_position';
-  const MIN_PASTE_LENGTH_KEY = 'pmx_min_paste_length';
   const COMPAT_MODE_KEY = 'pmx_compat_mode';
   const MAX_SNIPPETS = 200;
   const DEFAULT_KEYSTROKE_DELAY_MS = 20;
@@ -134,7 +133,7 @@
     return storageGet(FIRST_CHAR_DELAY_KEY).then(function (val) {
       const n = Number(val);
       if (!Number.isFinite(n) || n < 0) return DEFAULT_FIRST_CHAR_DELAY_MS;
-      return Math.min(n, 200);
+      return Math.min(n, 1000);
     });
   }
 
@@ -158,22 +157,38 @@
     return storageGet(COMPAT_MODE_KEY).then(function (val) { return Boolean(val); });
   }
 
-  function getMinPasteLength() {
-    return storageGet(MIN_PASTE_LENGTH_KEY).then(function (val) {
-      const n = Number(val);
-      if (!Number.isFinite(n) || n < 0) return 0;
-      return Math.min(1000, n);
-    });
-  }
-
   function sendEnter(canvas) {
     canvas.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', code: 'Enter', keyCode: 13, which: 13, bubbles: true, cancelable: true }));
     canvas.dispatchEvent(new KeyboardEvent('keyup',  { key: 'Enter', code: 'Enter', keyCode: 13, which: 13, bubbles: true, cancelable: true }));
   }
 
-  function sendText(canvas, text, delay, firstCharDelayMs, enterDelayMs, compatLongPaste) {
+  // Estimate total paste duration (ms) using same timing as sendText.
+  // Uses same clamping as sendText (compat uses COMPAT_* minimums) and a small buffer for timer jitter.
+  function estimatePasteDurationMs(text, delayMs, firstDelayMs, afterEnterMs, compatLongPaste) {
+    const normalized = (text || '').replace(/\r\n/g, '\n');
+    let n = normalized.length;
+    if (n === 0) return 0;
+    let dMs = delayMs;
+    let fMs = firstDelayMs;
+    if (compatLongPaste) {
+      dMs = Math.max(dMs, COMPAT_KEYSTROKE_MS);
+      fMs = Math.max(fMs, COMPAT_FIRST_CHAR_MS);
+    }
+    let newlines = 0;
+    for (let j = 0; j < n; j++) if (normalized[j] === '\n' || normalized[j] === '\r') newlines++;
+    let total = fMs + (n - 1) * dMs + newlines * afterEnterMs;
+    if (compatLongPaste && n > 1) {
+      const chunkPauses = Math.floor((n - 1) / COMPAT_CHUNK_CHARS);
+      total += chunkPauses * COMPAT_CHUNK_PAUSE_MS;
+    }
+    return Math.ceil(total * 1.2 + 300);
+  }
+
+  function sendText(canvas, text, delay, firstCharDelayMs, enterDelayMs, compatLongPaste, options) {
+    const cancelledRef = options && options.cancelledRef;
+    const onComplete = options && options.onComplete;
     let delayMs = delay != null && Number.isFinite(Number(delay)) ? Math.max(0, Number(delay)) : DEFAULT_KEYSTROKE_DELAY_MS;
-    let firstDelay = firstCharDelayMs != null && Number.isFinite(Number(firstCharDelayMs)) ? Math.max(0, Math.min(200, Number(firstCharDelayMs))) : DEFAULT_FIRST_CHAR_DELAY_MS;
+    let firstDelay = firstCharDelayMs != null && Number.isFinite(Number(firstCharDelayMs)) ? Math.max(0, Math.min(1000, Number(firstCharDelayMs))) : DEFAULT_FIRST_CHAR_DELAY_MS;
     const afterEnterMs = enterDelayMs != null && Number.isFinite(Number(enterDelayMs)) ? Math.max(0, Math.min(300, Number(enterDelayMs))) : DEFAULT_ENTER_DELAY_MS;
     if (compatLongPaste) {
       delayMs = Math.max(delayMs, COMPAT_KEYSTROKE_MS);
@@ -185,6 +200,10 @@
     let i = 0;
 
     function sendNext() {
+      if (cancelledRef && cancelledRef.cancelled) {
+        if (onComplete) onComplete(true);
+        return;
+      }
       if (i >= normalized.length) {
         storageGet(AUTO_ENTER_KEY).then(function (autoEnter) {
           if (autoEnter) {
@@ -192,6 +211,7 @@
           }
         });
         showToast('\u2713 Pasted ' + normalized.length + ' characters');
+        if (onComplete) onComplete(false);
         return;
       }
       const char = normalized[i];
@@ -214,8 +234,107 @@
 
   function sendTextWithStoredDelay(canvas, text) {
     Promise.all([getKeystrokeDelayMs(), getFirstCharDelayMs(), getEnterDelayMs(), getCompatMode()]).then(function (vals) {
+      const delayMs = vals[0];
+      const firstDelayMs = vals[1];
+      const afterEnterMs = vals[2];
       const compatLongPaste = Boolean(vals[3]) && text.length > COMPAT_MIN_CHARS;
-      sendText(canvas, text, vals[0], vals[1], vals[2], compatLongPaste);
+      const estimatedMs = estimatePasteDurationMs(text, delayMs, firstDelayMs, afterEnterMs, compatLongPaste);
+      const showTimer = estimatedMs >= 5000;
+
+      let cancelledRef = null;
+      let timerEl = null;
+      let timerInterval = null;
+
+      function hidePasteTimer() {
+        if (timerInterval) clearInterval(timerInterval);
+        timerInterval = null;
+        if (timerEl && timerEl.parentNode) timerEl.parentNode.removeChild(timerEl);
+        timerEl = null;
+      }
+
+      let completedCalled = false;
+      function onComplete(cancelled) {
+        if (completedCalled) return;
+        completedCalled = true;
+        hidePasteTimer();
+        if (cancelled) showToast('Paste cancelled');
+      }
+
+      if (showTimer) {
+        cancelledRef = { cancelled: false };
+        const startMs = Date.now();
+        timerEl = document.createElement('div');
+        timerEl.id = 'pmx-paste-timer';
+        Object.assign(timerEl.style, {
+          position: 'fixed', bottom: '80px', right: '20px',
+          background: THEME.bgPanel, color: THEME.text,
+          border: '1px solid ' + THEME.accent, borderRadius: '6px',
+          padding: '8px 12px', fontSize: '12px',
+          fontFamily: 'ui-monospace,SFMono-Regular,Menlo,Monaco,Consolas,"Liberation Mono","Courier New",monospace',
+          zIndex: '9999999', display: 'flex', flexDirection: 'column', gap: '8px',
+          boxShadow: '0 4px 16px rgba(0,0,0,0.6)',
+          pointerEvents: 'auto', minWidth: '160px'
+        });
+        const row = document.createElement('div');
+        row.style.display = 'flex';
+        row.style.alignItems = 'center';
+        row.style.gap = '10px';
+        const label = document.createElement('span');
+        label.textContent = 'Pasting… ';
+        const timeSpan = document.createElement('span');
+        timeSpan.style.fontWeight = '600';
+        const xBtn = document.createElement('button');
+        xBtn.type = 'button';
+        xBtn.textContent = '\u2715';
+        xBtn.title = 'Stop paste';
+        xBtn.setAttribute('aria-label', 'Stop paste');
+        Object.assign(xBtn.style, {
+          background: 'transparent', border: 'none', color: THEME.textMuted,
+          cursor: 'pointer', fontSize: '14px', padding: '6px 8px', lineHeight: 1,
+          marginLeft: 'auto', minWidth: '28px', minHeight: '28px',
+          display: 'flex', alignItems: 'center', justifyContent: 'center',
+          pointerEvents: 'auto'
+        });
+        xBtn.addEventListener('click', function (e) {
+          e.preventDefault();
+          e.stopPropagation();
+          if (cancelledRef) cancelledRef.cancelled = true;
+          hidePasteTimer();
+          onComplete(true);
+        });
+        row.appendChild(label);
+        row.appendChild(timeSpan);
+        row.appendChild(xBtn);
+        timerEl.appendChild(row);
+
+        const progressTrack = document.createElement('div');
+        progressTrack.style.cssText = 'height:4px;background:' + THEME.border + ';border-radius:2px;overflow:hidden;width:100%;';
+        const progressFill = document.createElement('div');
+        progressFill.style.cssText = 'height:100%;background:' + THEME.accent + ';border-radius:2px;width:0%;transition:width 0.2s ease;';
+        progressTrack.appendChild(progressFill);
+        timerEl.appendChild(progressTrack);
+
+        document.body.appendChild(timerEl);
+
+        function formatRemaining(ms) {
+          const s = Math.max(0, Math.ceil(ms / 1000));
+          const m = Math.floor(s / 60);
+          return m + ':' + String(s % 60).padStart(2, '0');
+        }
+        function updateTimer() {
+          if (cancelledRef && cancelledRef.cancelled) return;
+          const elapsed = Date.now() - startMs;
+          const remaining = Math.max(0, estimatedMs - elapsed);
+          timeSpan.textContent = formatRemaining(remaining);
+          const pct = estimatedMs > 0 ? Math.min(100, (elapsed / estimatedMs) * 100) : 100;
+          progressFill.style.width = pct + '%';
+          if (remaining <= 0) return;
+        }
+        updateTimer();
+        timerInterval = setInterval(updateTimer, 500);
+      }
+
+      sendText(canvas, text, delayMs, firstDelayMs, afterEnterMs, compatLongPaste, { cancelledRef: cancelledRef, onComplete: showTimer ? onComplete : undefined });
     });
   }
 
@@ -224,11 +343,6 @@
     try {
       const text = await navigator.clipboard.readText();
       if (!text) { showToast('\u26a0 Clipboard is empty'); return; }
-      const minLen = await getMinPasteLength();
-      if (minLen > 0 && text.length < minLen) {
-        showToast('\u26a0 Paste too short (min ' + minLen + ' characters)');
-        return;
-      }
       showToast('\u23f3 Pasting ' + text.length + ' chars\u2026');
       sendTextWithStoredDelay(canvas, text);
     } catch (_) {
@@ -341,6 +455,7 @@
     const CHEV_UP   = `<svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="18 15 12 9 6 15"/></svg>`;
     const CHEV_R    = `<svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"/></svg>`;
     const PENCIL    = `<svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>`;
+    const GEAR      = `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>`;
 
     // ── CSS (all colors from THEME at top of file) ──
     const CSS = `
@@ -378,19 +493,41 @@
       .pmx-pill-chev svg { color: ${THEME.textMuted}; transition: color 0.15s; }
       #pmx-btns:hover .pmx-pill-chev svg { color: ${THEME.accent}; }
 
-      /* ── Panel ── */
+      /* ── Panel (fixed size so it does not resize when switching tabs) ── */
       #pmx-panel {
-        display: none; flex-direction: column; width: 380px;
+        display: none; flex-direction: column; width: 380px; height: 400px; min-height: 400px;
         background: ${THEME.bgPanel}; border: 1px solid ${THEME.border}; border-radius: 6px;
         overflow: visible; position: relative;
         box-shadow: 0 20px 48px rgba(0,0,0,0.7);
       }
       #pmx-panel.open { display: flex; }
 
+      /* ── Title bar (like popup: title + settings + collapse) ── */
+      .pmx-title-bar {
+        flex-shrink: 0; display: flex; align-items: stretch;
+        padding: 0 0 0 14px; border-bottom: 1px solid ${THEME.border};
+        background: ${THEME.bg}; border-radius: 6px 6px 0 0;
+      }
+      .pmx-title {
+        flex: 1; display: flex; align-items: center; justify-content: center;
+        font-size: 11px; font-weight: 600; letter-spacing: 0.14em;
+        text-transform: uppercase; color: ${THEME.textMuted};
+        min-height: 36px;
+      }
+      .pmx-title-bar-actions {
+        display: flex; align-items: stretch; flex-shrink: 0;
+      }
+      .pmx-hdr-close {
+        display: flex; align-items: center; justify-content: center;
+        min-height: 36px; padding: 8px 0; width: 44px; flex-shrink: 0;
+        border-left: 1px solid ${THEME.border}; color: ${THEME.textMuted}; cursor: pointer;
+        transition: color 0.15s, background 0.15s;
+      }
+      .pmx-hdr-close:hover { background: ${THEME.bgPanel}; color: ${THEME.textMuted}; }
       /* ── Tab header ── */
       #pmx-header {
         display: flex; align-items: stretch; background: ${THEME.bg};
-        border-bottom: 1px solid ${THEME.border}; border-radius: 6px 6px 0 0; overflow: hidden;
+        border-bottom: 1px solid ${THEME.border}; overflow: hidden;
       }
       .pmx-tabs { display: flex; align-items: stretch; flex: 1; }
       .pmx-tab {
@@ -406,29 +543,29 @@
       .pmx-tab:hover { color: ${THEME.textMuted}; }
       .pmx-tab.active { color: ${THEME.text}; border-bottom-color: ${THEME.accent}; }
       .pmx-tab svg { color: inherit; }
-      .pmx-hdr-close {
-        width: 44px; flex-shrink: 0; display: flex; align-items: center; justify-content: center;
-        border-left: 1px solid ${THEME.border}; color: ${THEME.textMuted}; cursor: pointer;
-        transition: color 0.15s, background 0.15s;
-      }
-      .pmx-hdr-close:hover { background: ${THEME.bgPanel}; color: ${THEME.textMuted}; }
 
-      /* ── Views ── */
-      .pmx-view { display: none; flex-direction: column; }
+      /* ── Views (fill panel so Paste and Snippets use same height) ── */
+      .pmx-view { display: none; flex-direction: column; flex: 1; min-height: 0; }
       .pmx-view.active { display: flex; }
 
       /* ── Paste view ── */
       #pmx-textarea {
-        width: 100%; background: transparent; border: none; outline: none;
+        flex: 1; min-height: 0; width: 100%; background: transparent; border: none; outline: none;
         resize: none; font-family: inherit; font-size: 12px; color: ${THEME.textMuted};
-        padding: 11px 12px; height: 120px; display: block; caret-color: ${THEME.accent};
+        padding: 11px 12px; display: block; caret-color: ${THEME.accent};
       }
       #pmx-textarea::placeholder { color: ${THEME.textMuted}; }
 
-      #pmx-footer {
-        padding: 8px 10px; border-top: 1px solid ${THEME.border};
-        display: flex; justify-content: space-between; align-items: center; gap: 6px;
+      /* ── Paste & Snippets footers (same style) ── */
+      #pmx-footer,
+      .pmx-snip-footer {
+        flex-shrink: 0;
+        padding: 9px 12px; border-top: 1px solid ${THEME.border};
+        background: ${THEME.bg}; border-radius: 0 0 6px 6px;
+        display: flex; align-items: center; justify-content: space-between; gap: 10px;
+        flex-wrap: nowrap;
       }
+      .pmx-snip-footer-inner { min-width: 0; overflow: hidden; }
       .pmx-kbd {
         font-size: 9px; font-weight: 500; color: ${THEME.textMuted}; background: ${THEME.bg};
         border: 1px solid ${THEME.border}; border-radius: 4px; padding: 2px 5px;
@@ -493,7 +630,7 @@
 
       /* ── Snippets view ── */
       .pmx-snip-scroll {
-        max-height: 240px; overflow-y: auto; padding: 8px;
+        flex: 1; min-height: 0; overflow-y: auto; padding: 8px;
         display: flex; flex-direction: column; gap: 4px;
       }
       .pmx-snip-scroll::-webkit-scrollbar { width: 4px; }
@@ -573,22 +710,16 @@
         padding: 24px 12px; text-align: center; font-size: 10px; color: ${THEME.textMuted}; line-height: 1.7;
       }
 
-      .pmx-snip-footer {
-        padding: 9px 12px; border-top: 1px solid ${THEME.border};
-        background: ${THEME.bg}; border-radius: 0 0 6px 6px;
-        display: flex; align-items: center; justify-content: space-between; gap: 10px;
-        flex-wrap: nowrap;
-      }
-      .pmx-snip-footer-inner { min-width: 0; overflow: hidden; }
       .pmx-snip-hint { font-size: 9px; color: ${THEME.textMuted}; letter-spacing: 0.08em; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
       .pmx-snip-hint span { color: ${THEME.textMuted}; }
       #pmx-wrap .pmx-snip-new-btn {
-        flex-shrink: 0; margin-left: auto; background: ${THEME.accent}; border: none; border-radius: 4px; color: ${THEME.text};
-        font-size: 11px; font-weight: 600; padding: 7px 12px; cursor: pointer; white-space: nowrap;
-        transition: background 0.12s, box-shadow 0.12s; -webkit-appearance: none; appearance: none;
-        box-shadow: 0 1px 3px rgba(0,0,0,0.4);
+        flex-shrink: 0; background: ${THEME.accent}; border: none; border-radius: 4px; color: ${THEME.text};
+        font-family: inherit; font-size: 9px; font-weight: 500; letter-spacing: 0.08em;
+        padding: 5px 12px; cursor: pointer; white-space: nowrap;
+        display: flex; align-items: center; gap: 5px;
+        transition: background 0.12s; -webkit-appearance: none; appearance: none;
       }
-      #pmx-wrap .pmx-snip-new-btn:hover { background: ${THEME.accent}; box-shadow: 0 2px 6px rgba(245,102,0,0.35); }
+      #pmx-wrap .pmx-snip-new-btn:hover { background: ${THEME.accent}; }
 
       /* ── Edit popover (absolute, relative to #pmx-panel), fixed position ── */
       #pmx-edit-pop {
@@ -670,7 +801,26 @@
     const panel = document.createElement('div');
     panel.id = 'pmx-panel';
 
-    // ── Header / tabs ──
+    // ── Title bar (like popup) ──
+    const titleBar = document.createElement('div');
+    titleBar.className = 'pmx-title-bar';
+    const titleEl = document.createElement('span');
+    titleEl.className = 'pmx-title';
+    titleEl.textContent = 'PVE Snippets';
+
+    const hdrClose = document.createElement('span');
+    hdrClose.className = 'pmx-hdr-close';
+    hdrClose.title = 'Collapse';
+    hdrClose.innerHTML = CHEV_DOWN;
+
+    const titleBarActions = document.createElement('div');
+    titleBarActions.className = 'pmx-title-bar-actions';
+    titleBarActions.appendChild(hdrClose);
+
+    titleBar.appendChild(titleEl);
+    titleBar.appendChild(titleBarActions);
+
+    // ── Header / tabs only ──
     const header = document.createElement('div');
     header.id = 'pmx-header';
 
@@ -687,15 +837,9 @@
     snipsTab.className = 'pmx-tab';
     snipsTab.innerHTML = LIST_SM + ' Snippets';
 
-    const hdrClose = document.createElement('span');
-    hdrClose.className = 'pmx-hdr-close';
-    hdrClose.title = 'Collapse';
-    hdrClose.innerHTML = CHEV_DOWN;
-
     tabs.appendChild(pasteTab);
     tabs.appendChild(snipsTab);
     header.appendChild(tabs);
-    header.appendChild(hdrClose);
 
     // ── Paste view ──
     const pasteView = document.createElement('div');
@@ -1123,6 +1267,7 @@
     btnRow.appendChild(pillChev);
 
     // ── Assemble ──
+    panel.appendChild(titleBar);
     panel.appendChild(header);
     panel.appendChild(pasteView);
     panel.appendChild(snipsView);
@@ -1237,17 +1382,11 @@
       }
 
       if (msg.action === 'sendText' && text) {
-        getMinPasteLength().then(function (minLen) {
-          if (minLen > 0 && text.length < minLen) {
-            sendResponse({ ok: false, error: 'Paste too short (min ' + minLen + ' characters).' });
-            return;
-          }
+        if (tryHandle()) return;
+        setTimeout(function () {
           if (tryHandle()) return;
-          setTimeout(function () {
-            if (tryHandle()) return;
-            sendResponse({ ok: false, error: 'No target to paste into. Focus a noVNC console or a text field in the tab.' });
-          }, 150);
-        });
+          sendResponse({ ok: false, error: 'No target to paste into. Focus a noVNC console or a text field in the tab.' });
+        }, 150);
         return true;
       }
       if (tryHandle()) return true;

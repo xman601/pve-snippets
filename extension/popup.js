@@ -4,7 +4,6 @@
   const SNIPPETS_KEY = 'pmx_snippets_v1';
   const PASTE_DRAFT_KEY = 'pmx_paste_draft';
   const POPUP_DEFAULT_TAB_KEY = 'pmx_popup_default_tab';
-  const MIN_PASTE_LENGTH_KEY = 'pmx_min_paste_length';
   const MAX_SNIPPETS = 200;
 
   const popupSendBtn = document.getElementById('popup-send-btn');
@@ -368,6 +367,7 @@
         setPasteHint('Type or paste text above first, then click Save as snippet.', true);
         return;
       }
+      setTab('snippets'); // form lives in Snippets view – switch so it’s visible
       showSnippetForm({ id: null, name: '', text: text });
       setPasteHint('Name the snippet and click Save.');
     });
@@ -380,18 +380,10 @@
         setPasteHint('Enter or paste text above, then click Send.', true);
         return;
       }
-      storageGet(MIN_PASTE_LENGTH_KEY).then(function(minVal) {
-        const min = Math.max(0, Math.min(1000, Number(minVal) || 0));
-        if (min > 0 && text.length < min) {
-          setPasteHint('Paste too short (min ' + min + ' characters).', true);
-          return;
-        }
-        setPasteHint('Pasting…');
-        sendToContentScript({ action: 'sendText', text: text }).then(function(r) {
+      setPasteHint('Pasting…');
+      sendToContentScript({ action: 'sendText', text: text }).then(function(r) {
         if (r.ok) {
           setPasteHint('Pasted ' + text.length + ' characters.');
-          popupPasteText.value = '';
-          setPasteDraft('');
         } else {
           const err = r.error || 'Could not paste.';
           const hint = err.indexOf('Receiving end') !== -1 || err.indexOf('establish connection') !== -1
@@ -399,7 +391,6 @@
             : err;
           setPasteHint(hint, true);
         }
-      });
       });
     });
   }

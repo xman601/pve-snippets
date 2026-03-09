@@ -230,6 +230,16 @@
         margin-top: 14px;
       }
       .subsection:first-child { margin-top: 0; }
+      .settings-disclaimer {
+        font-size: 13px;
+        font-weight: 500;
+        color: #1a0f00;
+        margin: 0 0 16px 0;
+        padding: 10px 16px;
+        background: #F28D00;
+        border-radius: 8px;
+        border-bottom: none;
+      }
       .subsection-title {
         font-size: 10px;
         font-weight: 600;
@@ -616,6 +626,8 @@
         <p>Settings · Paste &amp; panel, backup, snippets</p>
       </header>
 
+      <p class="settings-disclaimer">Reload your Proxmox (noVNC) page for changes to take effect.</p>
+
       <div class="main-grid-wrapper">
         <nav class="settings-nav" aria-label="Settings">
           <button type="button" class="settings-nav-item active" data-panel="paste" aria-current="page">
@@ -654,10 +666,10 @@
                 </div>
                 <div class="setting-row">
                   <div class="setting-label-cell">
-                    <label class="setting-label" for="settings-first-char-delay">First char <span class="hint">ms</span></label>
-                    <span class="setting-info" title="Delay before the first character is sent (0–200 ms). Gives the VM time to be ready." aria-label="Help"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg></span>
+                    <label class="setting-label" for="settings-first-char-delay">First character <span class="hint">ms</span></label>
+                    <span class="setting-info" title="Delay before the first character is sent (0–1000 ms). Gives the VM time to be ready." aria-label="Help"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg></span>
                   </div>
-                  <div class="setting-input"><input type="number" id="settings-first-char-delay" min="0" max="200" step="5" value="40" /></div>
+                  <div class="setting-input"><input type="number" id="settings-first-char-delay" min="0" max="1000" step="5" value="40" /></div>
                 </div>
                 <div class="setting-row">
                   <div class="setting-label-cell">
@@ -665,13 +677,6 @@
                     <span class="setting-info" title="Extra delay after each newline when pasting (0–300 ms). Use if the VM is slow to process Enter." aria-label="Help"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg></span>
                   </div>
                   <div class="setting-input"><input type="number" id="settings-enter-delay" min="0" max="300" step="5" value="0" /></div>
-                </div>
-                <div class="setting-row">
-                  <div class="setting-label-cell">
-                    <label class="setting-label" for="settings-min-paste-length">Min length <span class="hint">chars</span></label>
-                    <span class="setting-info" title="Block paste if the text is shorter than this (0–1000). Use 0 to allow any length." aria-label="Help"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg></span>
-                  </div>
-                  <div class="setting-input"><input type="number" id="settings-min-paste-length" min="0" max="1000" value="0" /></div>
                 </div>
               </div>
               <div class="subsection">
