@@ -6,13 +6,14 @@ A Chrome, Edge, and Firefox browser extension that adds clipboard paste support 
 
 ## Features
 
-- **Floating Paste Button** — always-visible button in the bottom-right corner of the noVNC console (on PVE)
-- **Keyboard Shortcut** — native paste (`Ctrl+V` on Windows/Linux, `⌘V` on macOS) pastes into the VM when the console is focused
-- **Paste from Popup** — open the extension popup, type or paste text, and click “Paste into page” to send it to the active tab (works with any noVNC or focused text field)
-- **Hit Enter after paste** — optional toggle in the popup to send Enter after each paste
-- **Fallback Dialog** — if clipboard permission is denied, a text prompt appears so you can manually paste
-- **Visual Feedback** — toast notifications show paste progress and character count
-- **Saved Snippets** — save and reuse common paste blocks from the paste panel
+- **Floating Paste pill & panel** — small pill on PVE noVNC consoles that expands into a full panel with **Paste** and **Snippets** tabs
+- **Keyboard Shortcut** — native paste (`Ctrl+V` on Windows/Linux, `⌘V` on macOS) pastes into the VM when the console is focused (configurable in Settings)
+- **Popup Paste** — open the extension popup, type or paste text, and click **Send** to paste into the active tab (noVNC canvas or focused text field)
+- **Auto-hit Enter after paste** — optional toggle in Settings to send Enter after each paste
+- **Timing & compatibility controls** — adjust per‑character delay, first‑character delay (up to 1000 ms), extra delay after newlines, and an optional compatibility mode for very long pastes
+- **Saved Snippets** — create, edit, delete, and reorder snippets; run them from either the popup or the noVNC panel (up to 200 snippets)
+- **Backup & restore** — export all snippets to JSON and import them on another browser/profile
+- **Visual feedback** — toasts and, for long pastes, a **timer with countdown, progress bar, and cancel button** so you can see and control long-running pastes
 
 ## Installation (Developer Mode)
 
@@ -32,9 +33,12 @@ For Firefox (development): open `about:debugging`, click **This Firefox**, click
 
 1. Open your PVE web UI and launch a VM console (noVNC)
 2. Copy text on your host machine (`Ctrl+C`)
-3. Click the **Paste** button in the bottom-right, or press native paste (`Ctrl+V` / `⌘V`)
-4. The text will be typed into the VM character by character
-5. (Optional) Open the panel, choose a snippet from **Snippets…**, or click **Save** to store what’s in the textarea
+3. Either:
+   - Click the **Paste** pill in the corner of the console, or
+   - Press native paste (`Ctrl+V` / `⌘V`) with the console focused, or
+   - Open the popup and click **Send**
+4. The text will be typed into the VM character by character using the timing you configured
+5. (Optional) Expand the panel, switch to **Snippets**, and run or manage saved snippets; you can also save from the popup using **Save as snippet**
 
 **Export & import snippets:** Click the PVE Snippets icon in the browser toolbar (top-right) to open the extension popup. There you can **Export snippets** (download all as JSON) or **Import snippets** (load from a JSON file). Snippets stay on your device; export/import is for backup or moving to another browser.
 
@@ -44,15 +48,15 @@ All data stays on your device. Clipboard content is used only when you paste and
 
 ## Notes
 
-- The extension detects pages with a `<canvas>` element (which noVNC uses)
-- Characters are sent with a small delay between each to avoid dropped input
-- Newlines are translated to Enter keypresses
-- Very long pastes (1000+ chars) will take a moment — watch the toast notification
-- Maximum of 50 saved snippets; oldest are dropped when you add more
+- The extension only activates on PVE (Proxmox VE) noVNC console URLs; it won’t inject into arbitrary sites that happen to use `<canvas>`
+- Characters are sent with a configurable delay between each to avoid dropped input
+- Newlines are translated to Enter keypresses; you can also add an extra delay after each newline
+- Very long pastes (hundreds of characters) will take a moment — you’ll see a timer and progress bar for longer runs, and you can cancel them
+- Up to 200 saved snippets are supported; if you import more, the oldest ones are dropped
 
 ## Troubleshooting
 
-**Clipboard permission denied:** The browser may block clipboard access. Click the Paste button and a fallback dialog will appear where you can manually paste your text.
+**Clipboard permission denied:** The browser may block clipboard access. Click the Paste button and, if the clipboard is blocked, use the panel textarea instead (you can paste into it manually and send from there).
 
 **Characters getting dropped:** The VM might be processing input slower than the typing delay. If this happens, paste smaller chunks at a time.
 
