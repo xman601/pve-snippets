@@ -1,0 +1,92 @@
+[
+  {
+    "id": "s_1772260785778_be512b2e47b9d",
+    "name": "Clear",
+    "text": "clear",
+    "updatedAt": 1772260785778
+  },
+  {
+    "id": "s_1772260800001_a1b2c3d4e5f6a",
+    "name": "Reboot",
+    "text": "sudo reboot",
+    "updatedAt": 1772260800001
+  },
+  {
+    "id": "s_1772260751586_b308669d3aeee",
+    "name": "Update",
+    "text": "sudo apt update && sudo apt upgrade -y && clear",
+    "updatedAt": 1772260801761
+  },
+  {
+    "id": "s_1772260800003_c3d4e5f6a7b8c",
+    "name": "Disk Usage",
+    "text": "df -h",
+    "updatedAt": 1772260800003
+  },
+  {
+    "id": "s_1772260800005_e5f6a7b8c9d0e",
+    "name": "Memory Usage",
+    "text": "free -h",
+    "updatedAt": 1772260800005
+  },
+  {
+    "id": "s_1772260800007_a7b8c9d0e1f2a",
+    "name": "Running Processes",
+    "text": "htop",
+    "updatedAt": 1772260800007
+  },
+  {
+    "id": "s_1772260800025_a5b6c7d8e9f0a",
+    "name": "IP Address",
+    "text": "ip a",
+    "updatedAt": 1772260800025
+  },
+  {
+    "id": "s_1772260800033_c3d4e5f6a7b8d",
+    "name": "Git Status",
+    "text": "git status",
+    "updatedAt": 1772260800033
+  },
+  {
+    "id": "s_1772260800035_e5f6a7b8c9d0f",
+    "name": "Git Pull",
+    "text": "git pull",
+    "updatedAt": 1772260800035
+  },
+  {
+    "id": "s_1772260800036_f6a7b8c9d0e1g",
+    "name": "Git Add All",
+    "text": "git add .",
+    "updatedAt": 1772260800036
+  },
+  {
+    "id": "s_1772260800037_a7b8c9d0e1f2b",
+    "name": "Git Commit",
+    "text": "git commit -m \"\"",
+    "updatedAt": 1772260800037
+  },
+  {
+    "id": "s_1772260800038_b8c9d0e1f2a3c",
+    "name": "Git Push",
+    "text": "git push",
+    "updatedAt": 1772260800038
+  },
+  {
+    "id": "s_1772260800014_b4c5d6e7f8a9b",
+    "name": "Docker PS",
+    "text": "docker ps",
+    "updatedAt": 1772260800014
+  },
+  {
+    "id": "s_1772260800017_e7f8a9b0c1d2e",
+    "name": "Docker Compose Up",
+    "text": "docker compose up -d",
+    "updatedAt": 1772260800017
+  },
+  {
+    "id": "s_1772260800020_b0c1d2e3f4a5b",
+    "name": "Docker Compose Logs",
+    "text": "docker compose logs -f",
+    "updatedAt": 1772260800020
+  }
+]
