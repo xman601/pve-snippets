@@ -37,7 +37,26 @@
       ? browser.storage.local
       : null;
 
+  const syncStorage = typeof chrome !== 'undefined' && chrome.storage && chrome.storage.sync
+    ? chrome.storage.sync
+    : typeof browser !== 'undefined' && browser.storage && browser.storage.sync
+      ? browser.storage.sync
+      : null;
+
   if (!runtime) return;
+
+  // Set a first-run keyboard-layout guess, but only if sync doesn't already have one from
+  // another device -- a fresh install should never clobber an existing synced preference.
+  function seedKeyboardLayout() {
+    const guess = detectLayoutFromLanguage();
+    if (!syncStorage) { if (storage) storage.set({ [KEYBOARD_LAYOUT_KEY]: guess }); return; }
+    syncStorage.get([KEYBOARD_LAYOUT_KEY]).then(function (res) {
+      if (res && res[KEYBOARD_LAYOUT_KEY] !== undefined) return;
+      return syncStorage.set({ [KEYBOARD_LAYOUT_KEY]: guess });
+    }).catch(function () {
+      if (storage) storage.set({ [KEYBOARD_LAYOUT_KEY]: guess });
+    });
+  }
 
   function setBadge() {
     if (!action || !action.setBadgeText) return;
@@ -52,7 +71,7 @@
   if (runtime.onInstalled) {
     runtime.onInstalled.addListener(function (details) {
       if (details.reason === 'install') {
-        if (storage) storage.set({ [KEYBOARD_LAYOUT_KEY]: detectLayoutFromLanguage() });
+        seedKeyboardLayout();
         return;
       }
       if (details.reason !== 'update') return;

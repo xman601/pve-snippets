@@ -13,6 +13,7 @@ A Chrome, Edge, and Firefox browser extension that adds clipboard paste support 
 - **Timing & compatibility controls** — adjust per‑character delay, first‑character delay (up to 1000 ms), extra delay after newlines, and an optional compatibility mode for very long pastes
 - **Keyboard layout support** — choose US, UK, German (QWERTZ), or French (AZERTY) in Settings so symbols and accented characters type correctly on non-US VMs; the extension makes a best-effort guess at install time (from your browser) but you should confirm it matches your VM's guest OS layout
 - **Update notice** — after the extension auto-updates, a small badge appears on the toolbar icon and a one-time "Updated to vX.Y.Z" note shows in the popup or the noVNC panel
+- **Settings sync** — preferences (timing, keyboard layout, panel position, etc.) sync across devices via the browser's built-in account sync, when the user is signed in; falls back to local-only storage otherwise. Snippets are never synced this way — see Privacy.
 - **Saved Snippets** — create, edit, delete, and reorder snippets; run them from either the popup or the noVNC panel (up to 200 snippets)
 - **Backup & restore** — export all snippets to JSON and import them on another browser/profile
 - **Visual feedback** — toasts and, for long pastes, a **timer with countdown, progress bar, and cancel button** so you can see and control long-running pastes
@@ -48,7 +49,9 @@ For Firefox (development): open `about:debugging`, click **This Firefox**, click
 
 ## Privacy
 
-All data stays on your device. Clipboard content is used only when you paste and is not stored or sent anywhere. Snippets are stored locally in the browser. The extension does not send data to any server. See `docs/PRIVACY_POLICY_TEMPLATE.md` for the full policy.
+Clipboard content is used only when you paste and is not stored or sent anywhere. Snippets are always stored locally in the browser and are never synced. The extension does not send data to any server it controls. See `docs/PRIVACY_POLICY_TEMPLATE.md` for the full policy.
+
+Small preferences (timing, keyboard layout, panel position, etc. — never snippets or clipboard content) sync via `chrome.storage.sync`/`browser.storage.sync`, the browser's own built-in account sync, when the browser is signed in. That means the browser vendor (Google/Mozilla) carries these small settings values through its sync infrastructure the same way it would any other extension's synced settings; if you'd rather nothing leave the device, disable sync for extensions in your browser, or simply don't sign in — the extension falls back to local-only storage automatically.
 
 Note: local storage isn't indestructible — a browser "Clear browsing data" pass that includes **cookies and other site data** (not just cache) can wipe snippets and settings along with it. Export your snippets first (see above) before doing a deep browser cleanup.
 

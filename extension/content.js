@@ -70,7 +70,7 @@
   // resolveKey are defined in keyboard-layouts.js, loaded as a sibling content script
   // (see manifest.json) so they're available here as globals.
   function getKeyboardLayout() {
-    return storageGet(KEYBOARD_LAYOUT_KEY).then(function (val) {
+    return syncGet(KEYBOARD_LAYOUT_KEY).then(function (val) {
       return KEYBOARD_LAYOUTS[val] ? val : DEFAULT_KEYBOARD_LAYOUT;
     });
   }
@@ -124,7 +124,7 @@
 
   // Send text character by character. Release paste keys and delay first char so noVNC is ready.
   function getFirstCharDelayMs() {
-    return storageGet(FIRST_CHAR_DELAY_KEY).then(function (val) {
+    return syncGet(FIRST_CHAR_DELAY_KEY).then(function (val) {
       const n = Number(val);
       if (!Number.isFinite(n) || n < 0) return DEFAULT_FIRST_CHAR_DELAY_MS;
       return Math.min(n, 1000);
@@ -132,7 +132,7 @@
   }
 
   function getKeystrokeDelayMs() {
-    return storageGet(KEYSTROKE_DELAY_KEY).then(function (val) {
+    return syncGet(KEYSTROKE_DELAY_KEY).then(function (val) {
       const n = Number(val);
       if (!Number.isFinite(n) || n < 0) return DEFAULT_KEYSTROKE_DELAY_MS;
       return Math.min(n, 500);
@@ -140,7 +140,7 @@
   }
 
   function getEnterDelayMs() {
-    return storageGet(ENTER_DELAY_KEY).then(function (val) {
+    return syncGet(ENTER_DELAY_KEY).then(function (val) {
       const n = Number(val);
       if (!Number.isFinite(n) || n < 0) return DEFAULT_ENTER_DELAY_MS;
       return Math.min(n, 300);
@@ -148,7 +148,7 @@
   }
 
   function getCompatMode() {
-    return storageGet(COMPAT_MODE_KEY).then(function (val) { return Boolean(val); });
+    return syncGet(COMPAT_MODE_KEY).then(function (val) { return Boolean(val); });
   }
 
   function sendEnter(canvas) {
@@ -199,7 +199,7 @@
         return;
       }
       if (i >= normalized.length) {
-        storageGet(AUTO_ENTER_KEY).then(function (autoEnter) {
+        syncGet(AUTO_ENTER_KEY).then(function (autoEnter) {
           if (autoEnter) {
             setTimeout(function () { sendEnter(canvas); }, delayMs);
           }
@@ -391,6 +391,24 @@
     } catch (_) {}
     try { localStorage.setItem(key, JSON.stringify(value)); } catch (_) {}
     return Promise.resolve();
+  }
+
+  // Settings (not snippets) sync via chrome.storage.sync, falling back to local storage
+  // when sync is unavailable (e.g. Firefox without Sync signed in) or has no value yet
+  // (pre-existing local-only value from before sync support -- migrated up on read).
+  function syncGet(key) {
+    try {
+      if (typeof chrome !== 'undefined' && chrome.storage && chrome.storage.sync) {
+        return chrome.storage.sync.get([key]).then((res) => {
+          if (res[key] !== undefined) return res[key];
+          return storageGet(key).then((localVal) => {
+            if (localVal !== undefined) chrome.storage.sync.set({ [key]: localVal }).catch(() => {});
+            return localVal;
+          });
+        }).catch(() => storageGet(key));
+      }
+    } catch (_) {}
+    return storageGet(key);
   }
 
   async function getSnippets() {
@@ -1273,7 +1291,7 @@
     document.body.appendChild(wrap);
 
     function applyPanelPosition(w) {
-      storageGet(PANEL_POSITION_KEY).then(function (pos) {
+      syncGet(PANEL_POSITION_KEY).then(function (pos) {
         const p = (pos === 'bottom-left' || pos === 'top-right' || pos === 'top-left') ? pos : 'bottom-right';
         const px = '16px';
         w.style.top = w.style.bottom = w.style.left = w.style.right = 'auto';
@@ -1286,7 +1304,7 @@
     }
     applyPanelPosition(wrap);
 
-    storageGet(PANEL_OPEN_KEY).then(function (open) {
+    syncGet(PANEL_OPEN_KEY).then(function (open) {
       if (open) openPanel();
     });
 
@@ -1315,7 +1333,7 @@
       if ((e.ctrlKey || e.metaKey) && e.key === 'v') {
         e.preventDefault();
         e.stopPropagation();
-        storageGet(SHORTCUT_PASTE_ENABLED_KEY).then(function (enabled) {
+        syncGet(SHORTCUT_PASTE_ENABLED_KEY).then(function (enabled) {
           if (enabled !== false) pasteClipboard(canvas);
         });
       }

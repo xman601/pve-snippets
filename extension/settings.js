@@ -66,6 +66,55 @@
     });
   }
 
+  // Settings sync via chrome.storage.sync (falls back to local storage when sync is
+  // unavailable -- e.g. Firefox without Sync signed in, or sync disabled by policy/quota).
+  // Snippets are never synced (chrome.storage.sync's 8KB-per-item / 100KB-total quota
+  // is far too small for a snippet list) -- those stay on storageGet/storageSet + local.
+  function getSyncApi() {
+    try {
+      return typeof chrome !== 'undefined' && chrome.storage && chrome.storage.sync
+        ? chrome.storage.sync
+        : typeof browser !== 'undefined' && browser.storage && browser.storage.sync
+          ? browser.storage.sync
+          : null;
+    } catch (_) { return null; }
+  }
+
+  function syncGet(key) {
+    return new Promise(function (resolve) {
+      const api = getSyncApi();
+      if (!api) { storageGet(key).then(resolve); return; }
+      try {
+        api.get([key], function (res) {
+          const err = typeof chrome !== 'undefined' && chrome.runtime && chrome.runtime.lastError;
+          if (err || res[key] === undefined) {
+            // Not synced yet -- fall back to (and migrate up) any pre-existing local value.
+            storageGet(key).then(function (localVal) {
+              if (!err && localVal !== undefined) syncSet(key, localVal);
+              resolve(localVal);
+            });
+            return;
+          }
+          resolve(res[key]);
+        });
+      } catch (_) { storageGet(key).then(resolve); }
+    });
+  }
+
+  function syncSet(key, value) {
+    return new Promise(function (resolve) {
+      const api = getSyncApi();
+      if (!api) { storageSet(key, value).then(resolve); return; }
+      try {
+        api.set({ [key]: value }, function () {
+          const err = typeof chrome !== 'undefined' && chrome.runtime && chrome.runtime.lastError;
+          if (err) { storageSet(key, value).then(resolve); return; }
+          resolve();
+        });
+      } catch (_) { storageSet(key, value).then(resolve); }
+    });
+  }
+
   // Best-effort guesses at the layout of the machine running the browser — used only to
   // pre-fill a first-run default, never to override an explicit user choice.
   function detectLayoutFromLanguage() {
@@ -91,17 +140,17 @@
 
   function loadSettings() {
     Promise.all([
-      storageGet(AUTO_ENTER_KEY),
-      storageGet(KEYSTROKE_DELAY_KEY),
-      storageGet(FIRST_CHAR_DELAY_KEY),
-      storageGet(ENTER_DELAY_KEY),
-      storageGet(COMPAT_MODE_KEY),
-      storageGet(SHORTCUT_PASTE_ENABLED_KEY),
-      storageGet(POPUP_DEFAULT_TAB_KEY),
-      storageGet(PANEL_OPEN_KEY),
-      storageGet(PANEL_POSITION_KEY),
-      storageGet(KEYBOARD_LAYOUT_KEY),
-      storageGet(KEYBOARD_LAYOUT_USER_SET_KEY)
+      syncGet(AUTO_ENTER_KEY),
+      syncGet(KEYSTROKE_DELAY_KEY),
+      syncGet(FIRST_CHAR_DELAY_KEY),
+      syncGet(ENTER_DELAY_KEY),
+      syncGet(COMPAT_MODE_KEY),
+      syncGet(SHORTCUT_PASTE_ENABLED_KEY),
+      syncGet(POPUP_DEFAULT_TAB_KEY),
+      syncGet(PANEL_OPEN_KEY),
+      syncGet(PANEL_POSITION_KEY),
+      syncGet(KEYBOARD_LAYOUT_KEY),
+      syncGet(KEYBOARD_LAYOUT_USER_SET_KEY)
     ]).then(function (results) {
       if (settingsAutoEnter) settingsAutoEnter.checked = Boolean(results[0]);
       if (settingsKeystrokeDelay) {
@@ -137,7 +186,7 @@
           detectLayoutFromKeyboardMap().then(function (detected) {
             if (!detected || detected === settingsKeyboardLayout.value) return;
             settingsKeyboardLayout.value = detected;
-            storageSet(KEYBOARD_LAYOUT_KEY, detected);
+            syncSet(KEYBOARD_LAYOUT_KEY, detected);
             if (settingsKeyboardLayoutNote) settingsKeyboardLayoutNote.style.display = 'block';
           });
         }
@@ -147,71 +196,71 @@
 
   if (settingsAutoEnter) {
     settingsAutoEnter.addEventListener('change', function () {
-      storageSet(AUTO_ENTER_KEY, settingsAutoEnter.checked);
+      syncSet(AUTO_ENTER_KEY, settingsAutoEnter.checked);
     });
   }
   if (settingsKeystrokeDelay) {
     settingsKeystrokeDelay.addEventListener('change', function () {
       const val = Math.max(0, Math.min(500, Number(settingsKeystrokeDelay.value) || DEFAULT_KEYSTROKE_DELAY_MS));
-      storageSet(KEYSTROKE_DELAY_KEY, val);
+      syncSet(KEYSTROKE_DELAY_KEY, val);
       settingsKeystrokeDelay.value = String(val);
     });
     settingsKeystrokeDelay.addEventListener('input', function () {
       const val = Math.max(0, Math.min(500, Number(settingsKeystrokeDelay.value) || DEFAULT_KEYSTROKE_DELAY_MS));
-      storageSet(KEYSTROKE_DELAY_KEY, val);
+      syncSet(KEYSTROKE_DELAY_KEY, val);
     });
   }
   if (settingsFirstCharDelay) {
     settingsFirstCharDelay.addEventListener('change', function () {
       const val = Math.max(0, Math.min(1000, Number(settingsFirstCharDelay.value) || DEFAULT_FIRST_CHAR_DELAY_MS));
-      storageSet(FIRST_CHAR_DELAY_KEY, val);
+      syncSet(FIRST_CHAR_DELAY_KEY, val);
       settingsFirstCharDelay.value = String(val);
     });
     settingsFirstCharDelay.addEventListener('input', function () {
       const val = Math.max(0, Math.min(1000, Number(settingsFirstCharDelay.value) || DEFAULT_FIRST_CHAR_DELAY_MS));
-      storageSet(FIRST_CHAR_DELAY_KEY, val);
+      syncSet(FIRST_CHAR_DELAY_KEY, val);
     });
   }
   if (settingsEnterDelay) {
     settingsEnterDelay.addEventListener('change', function () {
       const val = Math.max(0, Math.min(300, Number(settingsEnterDelay.value) || DEFAULT_ENTER_DELAY_MS));
-      storageSet(ENTER_DELAY_KEY, val);
+      syncSet(ENTER_DELAY_KEY, val);
       settingsEnterDelay.value = String(val);
     });
     settingsEnterDelay.addEventListener('input', function () {
       const val = Math.max(0, Math.min(300, Number(settingsEnterDelay.value) || DEFAULT_ENTER_DELAY_MS));
-      storageSet(ENTER_DELAY_KEY, val);
+      syncSet(ENTER_DELAY_KEY, val);
     });
   }
   if (settingsCompatMode) {
     settingsCompatMode.addEventListener('change', function () {
-      storageSet(COMPAT_MODE_KEY, settingsCompatMode.checked);
+      syncSet(COMPAT_MODE_KEY, settingsCompatMode.checked);
     });
   }
   if (settingsShortcutPaste) {
     settingsShortcutPaste.addEventListener('change', function () {
-      storageSet(SHORTCUT_PASTE_ENABLED_KEY, settingsShortcutPaste.checked);
+      syncSet(SHORTCUT_PASTE_ENABLED_KEY, settingsShortcutPaste.checked);
     });
   }
   if (settingsPopupDefaultTab) {
     settingsPopupDefaultTab.addEventListener('change', function () {
-      storageSet(POPUP_DEFAULT_TAB_KEY, settingsPopupDefaultTab.value);
+      syncSet(POPUP_DEFAULT_TAB_KEY, settingsPopupDefaultTab.value);
     });
   }
   if (settingsPanelOpen) {
     settingsPanelOpen.addEventListener('change', function () {
-      storageSet(PANEL_OPEN_KEY, settingsPanelOpen.checked);
+      syncSet(PANEL_OPEN_KEY, settingsPanelOpen.checked);
     });
   }
   if (settingsPanelPosition) {
     settingsPanelPosition.addEventListener('change', function () {
-      storageSet(PANEL_POSITION_KEY, settingsPanelPosition.value);
+      syncSet(PANEL_POSITION_KEY, settingsPanelPosition.value);
     });
   }
   if (settingsKeyboardLayout) {
     settingsKeyboardLayout.addEventListener('change', function () {
-      storageSet(KEYBOARD_LAYOUT_KEY, settingsKeyboardLayout.value);
-      storageSet(KEYBOARD_LAYOUT_USER_SET_KEY, true);
+      syncSet(KEYBOARD_LAYOUT_KEY, settingsKeyboardLayout.value);
+      syncSet(KEYBOARD_LAYOUT_USER_SET_KEY, true);
       if (settingsKeyboardLayoutNote) settingsKeyboardLayoutNote.style.display = 'none';
     });
   }
