@@ -12,6 +12,7 @@ A Chrome, Edge, and Firefox browser extension that adds clipboard paste support 
 - **Auto-hit Enter after paste** — optional toggle in Settings to send Enter after each paste
 - **Timing & compatibility controls** — adjust per‑character delay, first‑character delay (up to 1000 ms), extra delay after newlines, and an optional compatibility mode for very long pastes
 - **Keyboard layout support** — choose US, UK, German (QWERTZ), or French (AZERTY) in Settings so symbols and accented characters type correctly on non-US VMs
+- **Update notice** — after the extension auto-updates, a small badge appears on the toolbar icon and a one-time "Updated to vX.Y.Z" note shows in the popup or the noVNC panel
 - **Saved Snippets** — create, edit, delete, and reorder snippets; run them from either the popup or the noVNC panel (up to 200 snippets)
 - **Backup & restore** — export all snippets to JSON and import them on another browser/profile
 - **Visual feedback** — toasts and, for long pastes, a **timer with countdown, progress bar, and cancel button** so you can see and control long-running pastes

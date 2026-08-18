@@ -14,6 +14,7 @@
   const PANEL_POSITION_KEY = 'pmx_panel_position';
   const COMPAT_MODE_KEY = 'pmx_compat_mode';
   const KEYBOARD_LAYOUT_KEY = 'pmx_keyboard_layout';
+  const UPDATE_NOTICE_KEY = 'pmx_update_notice';
   const MAX_SNIPPETS = 200;
   const DEFAULT_KEYSTROKE_DELAY_MS = 20;
   const DEFAULT_FIRST_CHAR_DELAY_MS = 40;
@@ -1519,9 +1520,24 @@
     });
   }
 
+  // Show a one-time toast after an update, if the background script recorded one.
+  function checkForUpdateNotice() {
+    storageGet(UPDATE_NOTICE_KEY).then(function (notice) {
+      if (!notice || notice.seen) return;
+      showToast('✓ PVE Snippets updated to v' + notice.to);
+      storageSet(UPDATE_NOTICE_KEY, Object.assign({}, notice, { seen: true }));
+      try {
+        if (typeof chrome !== 'undefined' && chrome.runtime && chrome.runtime.sendMessage) {
+          chrome.runtime.sendMessage({ type: 'pmx_clear_update_badge' });
+        }
+      } catch (_) {}
+    });
+  }
+
   // Initialize
   function init() {
     if (!isProxmoxConsole()) return;
+    checkForUpdateNotice();
     if (document.getElementById('pmx-wrap')) return; // already injected (e.g. by background script)
     waitForCanvas((canvas) => {
       injectButton(canvas);

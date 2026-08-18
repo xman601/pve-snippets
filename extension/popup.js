@@ -4,6 +4,7 @@
   const SNIPPETS_KEY = 'pmx_snippets_v1';
   const PASTE_DRAFT_KEY = 'pmx_paste_draft';
   const POPUP_DEFAULT_TAB_KEY = 'pmx_popup_default_tab';
+  const UPDATE_NOTICE_KEY = 'pmx_update_notice';
   const MAX_SNIPPETS = 200;
 
   const popupSendBtn = document.getElementById('popup-send-btn');
@@ -78,6 +79,17 @@
       if (typeof chrome !== 'undefined' && chrome.storage && chrome.storage.local) {
         chrome.storage.local.set({ [PASTE_DRAFT_KEY]: text });
       }
+    } catch (_) { }
+  }
+
+  function storageSet(key, value) {
+    try {
+      const api = typeof chrome !== 'undefined' && chrome.storage && chrome.storage.local
+        ? chrome.storage.local
+        : typeof browser !== 'undefined' && browser.storage && browser.storage.local
+          ? browser.storage.local
+          : null;
+      if (api) api.set({ [key]: value });
     } catch (_) { }
   }
 
@@ -419,5 +431,34 @@
   if (versionEl && typeof chrome !== 'undefined' && chrome.runtime && chrome.runtime.getManifest) {
     const manifest = chrome.runtime.getManifest();
     versionEl.textContent = 'v' + (manifest.version || '');
+  }
+
+  const updateBanner = document.getElementById('pmx-update-banner');
+  const updateText = document.getElementById('pmx-update-text');
+  const updateDismiss = document.getElementById('pmx-update-dismiss');
+
+  function clearUpdateBadge() {
+    try {
+      if (typeof chrome !== 'undefined' && chrome.action && chrome.action.setBadgeText) {
+        chrome.action.setBadgeText({ text: '' });
+      }
+    } catch (_) { }
+  }
+
+  function dismissUpdateBanner(notice) {
+    if (updateBanner) updateBanner.classList.remove('open');
+    if (notice) storageSet(UPDATE_NOTICE_KEY, Object.assign({}, notice, { seen: true }));
+    clearUpdateBadge();
+  }
+
+  if (updateBanner && updateText) {
+    storageGet(UPDATE_NOTICE_KEY).then(function (notice) {
+      if (!notice || notice.seen) return;
+      updateText.textContent = 'Updated to v' + notice.to;
+      updateBanner.classList.add('open');
+      if (updateDismiss) updateDismiss.addEventListener('click', function () { dismissUpdateBanner(notice); });
+      storageSet(UPDATE_NOTICE_KEY, Object.assign({}, notice, { seen: true }));
+      clearUpdateBadge();
+    });
   }
 })();
