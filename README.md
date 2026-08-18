@@ -31,6 +31,8 @@ For Edge: go to `edge://extensions/` and follow the same steps.
 
 For Firefox (development): open `about:debugging`, click **This Firefox**, click **Load Temporary Add-on…**, then select the **`extension`** folder or the `manifest.json` file inside it. The add-on will work until you restart Firefox; reload it from the same page after code changes.
 
+**Testing without a real Proxmox server:** see [`dev/README.md`](dev/README.md) for a mock noVNC console page that the extension activates on normally — useful for verifying paste behavior and keyboard layouts end-to-end.
+
 ## Usage
 
 1. Open your PVE web UI and launch a VM console (noVNC)
@@ -77,9 +79,10 @@ should match the guest OS too, independent of this extension.
 
 ```
 extension/       # Load unpacked from here (Chrome/Edge/Firefox); same folder for store zip
-  manifest.json, content.js, popup.html, popup.js, icons/
+  manifest.json, content.js, keyboard-layouts.js, popup.html, popup.js, icons/
 scripts/         # Build scripts
   build-icons.py, build-store-zip.py, requirements-icons.txt
+dev/             # Mock noVNC console for testing without a real Proxmox server
 assets/          # Source assets (e.g. icon.svg)
 docs/            # Additional documentation
 ```
