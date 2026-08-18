@@ -13,6 +13,7 @@
   const PANEL_OPEN_KEY = 'pmx_panel_open_by_default';
   const PANEL_POSITION_KEY = 'pmx_panel_position';
   const COMPAT_MODE_KEY = 'pmx_compat_mode';
+  const KEYBOARD_LAYOUT_KEY = 'pmx_keyboard_layout';
   const MAX_SNIPPETS = 200;
   const DEFAULT_KEYSTROKE_DELAY_MS = 20;
   const DEFAULT_FIRST_CHAR_DELAY_MS = 40;
@@ -64,37 +65,146 @@
     }
   }
 
-  // Map character to DOM KeyboardEvent code so noVNC's keyboard handler accepts it
-  function getKeyCode(char) {
-    const c = char.charCodeAt(0);
-    if (char === ' ') return 'Space';
-    if (char >= '0' && char <= '9') return 'Digit' + char;
-    if (char >= 'A' && char <= 'Z') return 'Key' + char;
-    if (char >= 'a' && char <= 'z') return 'Key' + char.toUpperCase();
-    const codeMap = {
-      '\n': 'Enter', '\r': 'Enter',
+  // Map a character to the DOM KeyboardEvent {code, shift, altGr} that a real keyboard
+  // in a given layout would use to physically produce it, so noVNC/the guest OS (which may
+  // resolve input from the physical code+modifiers, not just `key`) sees the right keystroke.
+  function buildUsLayout() {
+    const layout = {};
+    for (let i = 0; i <= 9; i++) layout[String(i)] = { code: 'Digit' + i, shift: false };
+    for (let c = 65; c <= 90; c++) {
+      const upper = String.fromCharCode(c);
+      layout[upper.toLowerCase()] = { code: 'Key' + upper, shift: false };
+      layout[upper] = { code: 'Key' + upper, shift: true };
+    }
+    layout[' '] = { code: 'Space', shift: false };
+    layout['\n'] = layout['\r'] = { code: 'Enter', shift: false };
+    const unshifted = {
       '`': 'Backquote', '-': 'Minus', '=': 'Equal', '[': 'BracketLeft',
       ']': 'BracketRight', '\\': 'Backslash', ';': 'Semicolon', "'": 'Quote',
-      ',': 'Comma', '.': 'Period', '/': 'Slash',
+      ',': 'Comma', '.': 'Period', '/': 'Slash'
+    };
+    Object.keys(unshifted).forEach((ch) => { layout[ch] = { code: unshifted[ch], shift: false }; });
+    const shifted = {
       '~': 'Backquote', '!': 'Digit1', '@': 'Digit2', '#': 'Digit3',
       '$': 'Digit4', '%': 'Digit5', '^': 'Digit6', '&': 'Digit7',
       '*': 'Digit8', '(': 'Digit9', ')': 'Digit0', '_': 'Minus',
       '+': 'Equal', '{': 'BracketLeft', '}': 'BracketRight', '|': 'Backslash',
       ':': 'Semicolon', '"': 'Quote', '<': 'Comma', '>': 'Period', '?': 'Slash'
     };
-    return codeMap[char] || (c >= 32 && c <= 126 ? 'Key' + char.toUpperCase() : 'KeyA');
+    Object.keys(shifted).forEach((ch) => { layout[ch] = { code: shifted[ch], shift: true }; });
+    return layout;
   }
 
-  function needsShift(char) {
-    if (char >= 'A' && char <= 'Z') return true;
-    return "~!@#$%^&*()_+{}|:\"<>?".includes(char);
+  function buildLayout(overrides) {
+    const layout = buildUsLayout();
+    Object.keys(overrides).forEach((ch) => { layout[ch] = overrides[ch]; });
+    return layout;
+  }
+
+  // UK QWERTY: " and @ swap places with the US layout, plus a £ symbol and an extra ISO key.
+  const UK_LAYOUT = buildLayout({
+    '"': { code: 'Digit2', shift: true },
+    '@': { code: 'Quote', shift: true },
+    "'": { code: 'Quote', shift: false },
+    '£': { code: 'Digit3', shift: true },
+    '#': { code: 'Backslash', shift: false },
+    '~': { code: 'Backslash', shift: true },
+    '\\': { code: 'IntlBackslash', shift: false },
+    '|': { code: 'IntlBackslash', shift: true }
+  });
+
+  // German QWERTZ: y/z swapped, umlauts/ß on their own keys, shifted digit row differs, AltGr symbols.
+  const DE_LAYOUT = buildLayout({
+    'z': { code: 'KeyY', shift: false }, 'Z': { code: 'KeyY', shift: true },
+    'y': { code: 'KeyZ', shift: false }, 'Y': { code: 'KeyZ', shift: true },
+    'ü': { code: 'BracketLeft', shift: false }, 'Ü': { code: 'BracketLeft', shift: true },
+    'ö': { code: 'Semicolon', shift: false }, 'Ö': { code: 'Semicolon', shift: true },
+    'ä': { code: 'Quote', shift: false }, 'Ä': { code: 'Quote', shift: true },
+    'ß': { code: 'Minus', shift: false }, '?': { code: 'Minus', shift: true },
+    '"': { code: 'Digit2', shift: true }, '§': { code: 'Digit3', shift: true },
+    '&': { code: 'Digit6', shift: true }, '/': { code: 'Digit7', shift: true },
+    '(': { code: 'Digit8', shift: true }, ')': { code: 'Digit9', shift: true },
+    '=': { code: 'Digit0', shift: true },
+    '+': { code: 'BracketRight', shift: false }, '*': { code: 'BracketRight', shift: true },
+    '#': { code: 'Backslash', shift: false }, "'": { code: 'Backslash', shift: true },
+    '<': { code: 'IntlBackslash', shift: false }, '>': { code: 'IntlBackslash', shift: true },
+    ',': { code: 'Comma', shift: false }, ';': { code: 'Comma', shift: true },
+    '.': { code: 'Period', shift: false }, ':': { code: 'Period', shift: true },
+    '-': { code: 'Slash', shift: false }, '_': { code: 'Slash', shift: true },
+    '@': { code: 'KeyQ', shift: false, altGr: true },
+    '€': { code: 'KeyE', shift: false, altGr: true },
+    '{': { code: 'Digit7', shift: false, altGr: true },
+    '[': { code: 'Digit8', shift: false, altGr: true },
+    ']': { code: 'Digit9', shift: false, altGr: true },
+    '}': { code: 'Digit0', shift: false, altGr: true },
+    '\\': { code: 'Minus', shift: false, altGr: true },
+    '|': { code: 'IntlBackslash', shift: false, altGr: true },
+    '~': { code: 'BracketRight', shift: false, altGr: true }
+  });
+
+  // French AZERTY: a/q, z/w and m/; swapped, digits need Shift, AltGr symbols on the number row.
+  const FR_LAYOUT = buildLayout({
+    'a': { code: 'KeyQ', shift: false }, 'A': { code: 'KeyQ', shift: true },
+    'q': { code: 'KeyA', shift: false }, 'Q': { code: 'KeyA', shift: true },
+    'z': { code: 'KeyW', shift: false }, 'Z': { code: 'KeyW', shift: true },
+    'w': { code: 'KeyZ', shift: false }, 'W': { code: 'KeyZ', shift: true },
+    'm': { code: 'Semicolon', shift: false }, 'M': { code: 'Semicolon', shift: true },
+    '1': { code: 'Digit1', shift: true }, '&': { code: 'Digit1', shift: false },
+    '2': { code: 'Digit2', shift: true }, 'é': { code: 'Digit2', shift: false },
+    '3': { code: 'Digit3', shift: true }, '"': { code: 'Digit3', shift: false },
+    '4': { code: 'Digit4', shift: true }, "'": { code: 'Digit4', shift: false },
+    '5': { code: 'Digit5', shift: true }, '(': { code: 'Digit5', shift: false },
+    '6': { code: 'Digit6', shift: true }, '-': { code: 'Digit6', shift: false },
+    '7': { code: 'Digit7', shift: true }, 'è': { code: 'Digit7', shift: false },
+    '8': { code: 'Digit8', shift: true }, '_': { code: 'Digit8', shift: false },
+    '9': { code: 'Digit9', shift: true }, 'ç': { code: 'Digit9', shift: false },
+    '0': { code: 'Digit0', shift: true }, 'à': { code: 'Digit0', shift: false },
+    ')': { code: 'Minus', shift: false }, '°': { code: 'Minus', shift: true },
+    '=': { code: 'Equal', shift: false }, '+': { code: 'Equal', shift: true },
+    '$': { code: 'BracketRight', shift: false }, '£': { code: 'BracketRight', shift: true },
+    'ù': { code: 'Quote', shift: false }, '%': { code: 'Quote', shift: true },
+    '*': { code: 'Backslash', shift: false }, 'µ': { code: 'Backslash', shift: true },
+    '<': { code: 'IntlBackslash', shift: false }, '>': { code: 'IntlBackslash', shift: true },
+    ',': { code: 'KeyM', shift: false }, '?': { code: 'KeyM', shift: true },
+    ';': { code: 'Comma', shift: false }, '.': { code: 'Comma', shift: true },
+    ':': { code: 'Period', shift: false }, '/': { code: 'Period', shift: true },
+    '!': { code: 'Slash', shift: false }, '§': { code: 'Slash', shift: true },
+    '~': { code: 'Digit2', shift: false, altGr: true },
+    '#': { code: 'Digit3', shift: false, altGr: true },
+    '{': { code: 'Digit4', shift: false, altGr: true },
+    '[': { code: 'Digit5', shift: false, altGr: true },
+    '|': { code: 'Digit6', shift: false, altGr: true },
+    '`': { code: 'Digit7', shift: false, altGr: true },
+    '\\': { code: 'Digit8', shift: false, altGr: true },
+    '^': { code: 'Digit9', shift: false, altGr: true },
+    '@': { code: 'Digit0', shift: false, altGr: true },
+    ']': { code: 'Minus', shift: false, altGr: true },
+    '}': { code: 'Equal', shift: false, altGr: true }
+  });
+
+  const DEFAULT_KEYBOARD_LAYOUT = 'us';
+  const KEYBOARD_LAYOUTS = { us: buildUsLayout(), uk: UK_LAYOUT, de: DE_LAYOUT, fr: FR_LAYOUT };
+
+  // Resolve a character to {code, shift, altGr} for the given layout table, with a
+  // best-effort fallback for characters the table doesn't cover (key/keyCode still carry
+  // the real character, so keysym-based interpreters resolve it correctly either way).
+  function resolveKey(layoutTable, char) {
+    const entry = layoutTable[char];
+    if (entry) return entry;
+    const c = char.charCodeAt(0);
+    return { code: (c >= 32 && c <= 126 ? 'Key' + char.toUpperCase() : 'KeyA'), shift: false, altGr: false };
+  }
+
+  function getKeyboardLayout() {
+    return storageGet(KEYBOARD_LAYOUT_KEY).then(function (val) {
+      return KEYBOARD_LAYOUTS[val] ? val : DEFAULT_KEYBOARD_LAYOUT;
+    });
   }
 
   // Send a single character to the noVNC canvas using keyboard events
-  function sendChar(canvas, char) {
+  function sendChar(canvas, char, layoutTable) {
     const keyCode = char.charCodeAt(0);
-    const code = getKeyCode(char);
-    const shift = needsShift(char);
+    const { code, shift, altGr } = resolveKey(layoutTable, char);
 
     const baseOpts = { bubbles: true, cancelable: true };
 
@@ -103,15 +213,25 @@
         ...baseOpts, key: 'Shift', code: 'ShiftLeft', keyCode: 16, which: 16, shiftKey: true
       }));
     }
+    if (altGr) {
+      canvas.dispatchEvent(new KeyboardEvent('keydown', {
+        ...baseOpts, key: 'AltGraph', code: 'AltRight', keyCode: 18, which: 18, altKey: true
+      }));
+    }
 
     const keyEventOpts = {
-      ...baseOpts, key: char, code, keyCode, which: keyCode, charCode: keyCode, shiftKey: shift
+      ...baseOpts, key: char, code, keyCode, which: keyCode, charCode: keyCode, shiftKey: shift, altKey: altGr
     };
 
     canvas.dispatchEvent(new KeyboardEvent('keydown', keyEventOpts));
     canvas.dispatchEvent(new KeyboardEvent('keypress', keyEventOpts));
     canvas.dispatchEvent(new KeyboardEvent('keyup', keyEventOpts));
 
+    if (altGr) {
+      canvas.dispatchEvent(new KeyboardEvent('keyup', {
+        ...baseOpts, key: 'AltGraph', code: 'AltRight', keyCode: 18, which: 18, altKey: false
+      }));
+    }
     if (shift) {
       canvas.dispatchEvent(new KeyboardEvent('keyup', {
         ...baseOpts, key: 'Shift', code: 'ShiftLeft', keyCode: 16, which: 16, shiftKey: false
@@ -184,7 +304,7 @@
     return Math.ceil(total * 1.2 + 300);
   }
 
-  function sendText(canvas, text, delay, firstCharDelayMs, enterDelayMs, compatLongPaste, options) {
+  function sendText(canvas, text, delay, firstCharDelayMs, enterDelayMs, compatLongPaste, layoutTable, options) {
     const cancelledRef = options && options.cancelledRef;
     const onComplete = options && options.onComplete;
     let delayMs = delay != null && Number.isFinite(Number(delay)) ? Math.max(0, Number(delay)) : DEFAULT_KEYSTROKE_DELAY_MS;
@@ -220,7 +340,7 @@
         i++;
         setTimeout(sendNext, delayMs + afterEnterMs);
       } else {
-        sendChar(canvas, char);
+        sendChar(canvas, char, layoutTable);
         i++;
         let nextDelay = delayMs;
         if (compatLongPaste && i > 0 && i % COMPAT_CHUNK_CHARS === 0) {
@@ -233,11 +353,12 @@
   }
 
   function sendTextWithStoredDelay(canvas, text) {
-    Promise.all([getKeystrokeDelayMs(), getFirstCharDelayMs(), getEnterDelayMs(), getCompatMode()]).then(function (vals) {
+    Promise.all([getKeystrokeDelayMs(), getFirstCharDelayMs(), getEnterDelayMs(), getCompatMode(), getKeyboardLayout()]).then(function (vals) {
       const delayMs = vals[0];
       const firstDelayMs = vals[1];
       const afterEnterMs = vals[2];
       const compatLongPaste = Boolean(vals[3]) && text.length > COMPAT_MIN_CHARS;
+      const layoutTable = KEYBOARD_LAYOUTS[vals[4]] || KEYBOARD_LAYOUTS[DEFAULT_KEYBOARD_LAYOUT];
       const estimatedMs = estimatePasteDurationMs(text, delayMs, firstDelayMs, afterEnterMs, compatLongPaste);
       const showTimer = estimatedMs >= 5000;
 
@@ -334,7 +455,7 @@
         timerInterval = setInterval(updateTimer, 500);
       }
 
-      sendText(canvas, text, delayMs, firstDelayMs, afterEnterMs, compatLongPaste, { cancelledRef: cancelledRef, onComplete: showTimer ? onComplete : undefined });
+      sendText(canvas, text, delayMs, firstDelayMs, afterEnterMs, compatLongPaste, layoutTable, { cancelledRef: cancelledRef, onComplete: showTimer ? onComplete : undefined });
     });
   }
 

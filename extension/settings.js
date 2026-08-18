@@ -11,6 +11,8 @@
   const PANEL_OPEN_KEY = 'pmx_panel_open_by_default';
   const PANEL_POSITION_KEY = 'pmx_panel_position';
   const COMPAT_MODE_KEY = 'pmx_compat_mode';
+  const KEYBOARD_LAYOUT_KEY = 'pmx_keyboard_layout';
+  const KEYBOARD_LAYOUTS = ['us', 'uk', 'de', 'fr'];
   const MAX_SNIPPETS = 200;
   const DEFAULT_KEYSTROKE_DELAY_MS = 20;
   const DEFAULT_FIRST_CHAR_DELAY_MS = 40;
@@ -27,6 +29,7 @@
   const settingsPopupDefaultTab = document.getElementById('settings-popup-default-tab');
   const settingsPanelOpen = document.getElementById('settings-panel-open');
   const settingsPanelPosition = document.getElementById('settings-panel-position');
+  const settingsKeyboardLayout = document.getElementById('settings-keyboard-layout');
   function storageGet(key) {
     return new Promise(function (resolve) {
       try {
@@ -71,7 +74,8 @@
       storageGet(SHORTCUT_PASTE_ENABLED_KEY),
       storageGet(POPUP_DEFAULT_TAB_KEY),
       storageGet(PANEL_OPEN_KEY),
-      storageGet(PANEL_POSITION_KEY)
+      storageGet(PANEL_POSITION_KEY),
+      storageGet(KEYBOARD_LAYOUT_KEY)
     ]).then(function (results) {
       if (settingsAutoEnter) settingsAutoEnter.checked = Boolean(results[0]);
       if (settingsKeystrokeDelay) {
@@ -97,6 +101,10 @@
         const pos = results[8];
         const v = (pos === 'bottom-left' || pos === 'top-right' || pos === 'top-left') ? pos : 'bottom-right';
         settingsPanelPosition.value = v;
+      }
+      if (settingsKeyboardLayout) {
+        const layout = results[9];
+        settingsKeyboardLayout.value = KEYBOARD_LAYOUTS.includes(layout) ? layout : 'us';
       }
     });
   }
@@ -162,6 +170,11 @@
   if (settingsPanelPosition) {
     settingsPanelPosition.addEventListener('change', function () {
       storageSet(PANEL_POSITION_KEY, settingsPanelPosition.value);
+    });
+  }
+  if (settingsKeyboardLayout) {
+    settingsKeyboardLayout.addEventListener('change', function () {
+      storageSet(KEYBOARD_LAYOUT_KEY, settingsKeyboardLayout.value);
     });
   }
   loadSettings();

@@ -11,6 +11,7 @@ A Chrome, Edge, and Firefox browser extension that adds clipboard paste support 
 - **Popup Paste** — open the extension popup, type or paste text, and click **Send** to paste into the active tab (noVNC canvas or focused text field)
 - **Auto-hit Enter after paste** — optional toggle in Settings to send Enter after each paste
 - **Timing & compatibility controls** — adjust per‑character delay, first‑character delay (up to 1000 ms), extra delay after newlines, and an optional compatibility mode for very long pastes
+- **Keyboard layout support** — choose US, UK, German (QWERTZ), or French (AZERTY) in Settings so symbols and accented characters type correctly on non-US VMs
 - **Saved Snippets** — create, edit, delete, and reorder snippets; run them from either the popup or the noVNC panel (up to 200 snippets)
 - **Backup & restore** — export all snippets to JSON and import them on another browser/profile
 - **Visual feedback** — toasts and, for long pastes, a **timer with countdown, progress bar, and cancel button** so you can see and control long-running pastes
@@ -53,6 +54,15 @@ All data stays on your device. Clipboard content is used only when you paste and
 - Newlines are translated to Enter keypresses; you can also add an extra delay after each newline
 - Very long pastes (hundreds of characters) will take a moment — you’ll see a timer and progress bar for longer runs, and you can cancel them
 - Up to 200 saved snippets are supported; if you import more, the oldest ones are dropped
+
+## Keyboard layouts
+
+If pasted text comes out with the wrong symbols or accented characters (common on
+AZERTY or German QWERTZ setups), open the extension **Settings → Paste → Keyboard
+layout** and pick the layout that matches **the VM's/guest OS's** keyboard layout —
+not necessarily the layout of the machine you're pasting from. Proxmox VMs also have
+their own **Keyboard Layout** hardware option (Datacenter/VM settings); that setting
+should match the guest OS too, independent of this extension.
 
 ## Troubleshooting
 
