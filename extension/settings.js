@@ -12,6 +12,7 @@
   const PANEL_POSITION_KEY = 'pmx_panel_position';
   const COMPAT_MODE_KEY = 'pmx_compat_mode';
   const KEYBOARD_LAYOUT_KEY = 'pmx_keyboard_layout';
+  const KEYBOARD_LAYOUT_USER_SET_KEY = 'pmx_keyboard_layout_user_set';
   const KEYBOARD_LAYOUTS = ['us', 'uk', 'de', 'fr'];
   const MAX_SNIPPETS = 200;
   const DEFAULT_KEYSTROKE_DELAY_MS = 20;
@@ -30,6 +31,7 @@
   const settingsPanelOpen = document.getElementById('settings-panel-open');
   const settingsPanelPosition = document.getElementById('settings-panel-position');
   const settingsKeyboardLayout = document.getElementById('settings-keyboard-layout');
+  const settingsKeyboardLayoutNote = document.getElementById('settings-keyboard-layout-note');
   function storageGet(key) {
     return new Promise(function (resolve) {
       try {
@@ -64,6 +66,29 @@
     });
   }
 
+  // Best-effort guesses at the layout of the machine running the browser — used only to
+  // pre-fill a first-run default, never to override an explicit user choice.
+  function detectLayoutFromLanguage() {
+    const lang = (navigator.language || (navigator.languages && navigator.languages[0])) || '';
+    const l = lang.toLowerCase();
+    if (l.startsWith('fr')) return 'fr';
+    if (l.startsWith('de')) return 'de';
+    if (l === 'en-gb' || l.startsWith('en-gb')) return 'uk';
+    return 'us';
+  }
+
+  // More accurate than locale, but Chrome/Edge only: inspects which characters the
+  // physical keys actually produce on the current OS keyboard layout.
+  function detectLayoutFromKeyboardMap() {
+    if (!navigator.keyboard || !navigator.keyboard.getLayoutMap) return Promise.resolve(null);
+    return navigator.keyboard.getLayoutMap().then(function (map) {
+      if (map.get('KeyQ') === 'a') return 'fr';
+      if (map.get('KeyY') === 'z') return 'de';
+      if (map.get('Backslash') === '#') return 'uk';
+      return 'us';
+    }).catch(function () { return null; });
+  }
+
   function loadSettings() {
     Promise.all([
       storageGet(AUTO_ENTER_KEY),
@@ -75,7 +100,8 @@
       storageGet(POPUP_DEFAULT_TAB_KEY),
       storageGet(PANEL_OPEN_KEY),
       storageGet(PANEL_POSITION_KEY),
-      storageGet(KEYBOARD_LAYOUT_KEY)
+      storageGet(KEYBOARD_LAYOUT_KEY),
+      storageGet(KEYBOARD_LAYOUT_USER_SET_KEY)
     ]).then(function (results) {
       if (settingsAutoEnter) settingsAutoEnter.checked = Boolean(results[0]);
       if (settingsKeystrokeDelay) {
@@ -104,7 +130,17 @@
       }
       if (settingsKeyboardLayout) {
         const layout = results[9];
+        const userSet = Boolean(results[10]);
         settingsKeyboardLayout.value = KEYBOARD_LAYOUTS.includes(layout) ? layout : 'us';
+        if (settingsKeyboardLayoutNote) settingsKeyboardLayoutNote.style.display = (!userSet && layout) ? 'block' : 'none';
+        if (!userSet) {
+          detectLayoutFromKeyboardMap().then(function (detected) {
+            if (!detected || detected === settingsKeyboardLayout.value) return;
+            settingsKeyboardLayout.value = detected;
+            storageSet(KEYBOARD_LAYOUT_KEY, detected);
+            if (settingsKeyboardLayoutNote) settingsKeyboardLayoutNote.style.display = 'block';
+          });
+        }
       }
     });
   }
@@ -175,6 +211,8 @@
   if (settingsKeyboardLayout) {
     settingsKeyboardLayout.addEventListener('change', function () {
       storageSet(KEYBOARD_LAYOUT_KEY, settingsKeyboardLayout.value);
+      storageSet(KEYBOARD_LAYOUT_USER_SET_KEY, true);
+      if (settingsKeyboardLayoutNote) settingsKeyboardLayoutNote.style.display = 'none';
     });
   }
   loadSettings();

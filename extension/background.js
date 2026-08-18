@@ -5,7 +5,19 @@
   'use strict';
 
   const UPDATE_NOTICE_KEY = 'pmx_update_notice';
+  const KEYBOARD_LAYOUT_KEY = 'pmx_keyboard_layout';
   const BADGE_COLOR = '#f60';
+
+  // Best-effort guess from browser/OS locale. Only ever used as a first-run default —
+  // it reflects the machine running the browser, not the VM's configured guest layout.
+  function detectLayoutFromLanguage() {
+    const lang = (typeof navigator !== 'undefined' && (navigator.language || (navigator.languages && navigator.languages[0]))) || '';
+    const l = lang.toLowerCase();
+    if (l.startsWith('fr')) return 'fr';
+    if (l.startsWith('de')) return 'de';
+    if (l === 'en-gb' || l.startsWith('en-gb')) return 'uk';
+    return 'us';
+  }
 
   const runtime = typeof chrome !== 'undefined' && chrome.runtime
     ? chrome.runtime
@@ -39,6 +51,10 @@
 
   if (runtime.onInstalled) {
     runtime.onInstalled.addListener(function (details) {
+      if (details.reason === 'install') {
+        if (storage) storage.set({ [KEYBOARD_LAYOUT_KEY]: detectLayoutFromLanguage() });
+        return;
+      }
       if (details.reason !== 'update') return;
       const toVersion = runtime.getManifest().version;
       const fromVersion = details.previousVersion || '';
