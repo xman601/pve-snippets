@@ -50,6 +50,8 @@ For Firefox (development): open `about:debugging`, click **This Firefox**, click
 
 All data stays on your device. Clipboard content is used only when you paste and is not stored or sent anywhere. Snippets are stored locally in the browser. The extension does not send data to any server. See `docs/PRIVACY_POLICY_TEMPLATE.md` for the full policy.
 
+Note: local storage isn't indestructible — a browser "Clear browsing data" pass that includes **cookies and other site data** (not just cache) can wipe snippets and settings along with it. Export your snippets first (see above) before doing a deep browser cleanup.
+
 ## Notes
 
 - The extension only activates on PVE (Proxmox VE) noVNC console URLs; it won’t inject into arbitrary sites that happen to use `<canvas>`
