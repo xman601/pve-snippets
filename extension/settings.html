@@ -378,6 +378,22 @@
         border-color: var(--accent);
         background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%23ea580c' stroke-width='2.2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'/%3E%3C/svg%3E");
       }
+      .setting-input input[type="password"],
+      .setting-input input[type="text"] {
+        width: 180px;
+        padding: 6px 10px;
+        font-size: 13px;
+        background: var(--bg);
+        border: 1px solid var(--border);
+        border-radius: var(--radius-sm);
+        color: var(--text);
+        font-family: inherit;
+      }
+      .setting-input input[type="password"]:focus,
+      .setting-input input[type="text"]:focus {
+        outline: none;
+        border-color: var(--accent);
+      }
 
       /* Backup section */
       .backup-actions {
@@ -771,6 +787,40 @@
                   <svg viewBox="0 0 24 24" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
                   Export all
                 </button>
+              </div>
+
+              <div class="subsection">
+                <div class="subsection-title">GitHub Gist Backup</div>
+                <div class="setting-row">
+                  <div class="setting-label-cell">
+                    <label class="setting-label" for="gh-token">Personal access token</label>
+                    <span class="setting-info" title="A GitHub token scoped to only 'gist', used to store your snippets as a secret Gist. Stored locally on this device only (chrome.storage.local) -- never synced, never sent anywhere except api.github.com." aria-label="Help"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg></span>
+                  </div>
+                  <div class="setting-input">
+                    <input type="password" id="gh-token" placeholder="ghp_..." autocomplete="off" />
+                  </div>
+                </div>
+                <div class="setting-row">
+                  <div class="setting-label-cell">
+                    <label class="setting-label" for="gh-gist-id">Gist ID (optional)</label>
+                    <span class="setting-info" title="Leave blank to create a new Gist on first export, or to use the Gist ID this device already remembers. Paste an existing Gist ID here to link to it -- e.g. when setting up a new device to import from a Gist created elsewhere." aria-label="Help"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg></span>
+                  </div>
+                  <div class="setting-input">
+                    <input type="text" id="gh-gist-id" placeholder="auto" autocomplete="off" />
+                  </div>
+                </div>
+                <p style="font-size:11px;color:var(--text-muted);margin:2px 0 10px;">
+                  <a href="https://github.com/settings/tokens/new?scopes=gist&description=PVE%20Snippets" target="_blank" rel="noopener noreferrer">Create a gist-only token on GitHub</a>
+                  &mdash; secret gists are unlisted, not private; anyone with the link can view them.
+                </p>
+                <div class="backup-actions">
+                  <button type="button" class="export-btn" id="gh-export-btn">
+                    <svg viewBox="0 0 24 24" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+                    Export to Gist
+                  </button>
+                  <button type="button" class="btn-secondary" id="gh-import-btn">Import from Gist</button>
+                  <button type="button" class="btn-secondary" id="gh-forget-btn">Forget token</button>
+                </div>
               </div>
             </section>
           </div>

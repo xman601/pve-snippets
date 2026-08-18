@@ -328,6 +328,20 @@
     };
   }
 
+  // Merge freshly-imported snippets into existing ones by id, newest-first, capped at
+  // MAX_SNIPPETS. Shared by the JSON-file import and the GitHub Gist import below.
+  function mergeAndSaveSnippets(normalized) {
+    return getSnippets().then(function (existing) {
+      const byId = {};
+      existing.forEach(function (s) { byId[s.id] = s; });
+      normalized.forEach(function (s) { byId[s.id] = s; });
+      const merged = Object.keys(byId).map(function (id) { return byId[id]; });
+      merged.sort(function (a, b) { return (b.updatedAt || 0) - (a.updatedAt || 0); });
+      const capped = merged.slice(0, MAX_SNIPPETS);
+      return setSnippets(capped).then(function () { return capped; });
+    });
+  }
+
   var dropZone = document.getElementById('dropZone');
   if (dropZone && fileInput) {
     dropZone.addEventListener('drop', function (e) {
@@ -370,24 +384,124 @@
           return;
         }
 
-        getSnippets().then(function (existing) {
-          const byId = {};
-          existing.forEach(function (s) { byId[s.id] = s; });
-          normalized.forEach(function (s) { byId[s.id] = s; });
-          const merged = Object.keys(byId).map(function (id) { return byId[id]; });
-          merged.sort(function (a, b) { return (b.updatedAt || 0) - (a.updatedAt || 0); });
-          (function () {
-            const capped = merged.slice(0, MAX_SNIPPETS);
-            setSnippets(capped).then(function () {
-              setStatus('Imported ' + normalized.length + ' snippet(s). Total: ' + capped.length + '.');
-            });
-          })();
+        mergeAndSaveSnippets(normalized).then(function (capped) {
+          setStatus('Imported ' + normalized.length + ' snippet(s). Total: ' + capped.length + '.');
         });
       };
       reader.onerror = function () {
         setStatus('Import failed: could not read file.', true);
       };
       reader.readAsText(file, 'utf-8');
+    });
+  }
+
+  // ── GitHub Gist backup ──────────────────────────────────────────
+  // Token and linked Gist ID are local-only (chrome.storage.local), never synced --
+  // a GitHub token is a real secret and sync would hand it to the browser vendor's
+  // account infrastructure along with everything else that gets synced.
+  const GITHUB_TOKEN_KEY = 'pmx_github_token';
+  const GITHUB_GIST_ID_KEY = 'pmx_github_gist_id';
+  const GIST_FILENAME = 'pve-snippets.json';
+  const GITHUB_API = 'https://api.github.com';
+
+  const ghTokenInput = document.getElementById('gh-token');
+  const ghGistIdInput = document.getElementById('gh-gist-id');
+  const ghExportBtn = document.getElementById('gh-export-btn');
+  const ghImportBtn = document.getElementById('gh-import-btn');
+  const ghForgetBtn = document.getElementById('gh-forget-btn');
+
+  if (ghTokenInput) {
+    storageGet(GITHUB_TOKEN_KEY).then(function (token) { if (token) ghTokenInput.value = token; });
+  }
+  if (ghGistIdInput) {
+    storageGet(GITHUB_GIST_ID_KEY).then(function (id) { if (id) ghGistIdInput.value = id; });
+  }
+
+  function githubRequest(token, path, method, body) {
+    return fetch(GITHUB_API + path, {
+      method: method || 'GET',
+      headers: {
+        'Authorization': 'Bearer ' + token,
+        'Accept': 'application/vnd.github+json',
+        'Content-Type': 'application/json'
+      },
+      body: body ? JSON.stringify(body) : undefined
+    }).then(function (res) {
+      return res.json().catch(function () { return {}; }).then(function (data) {
+        if (!res.ok) throw new Error((data && data.message) || ('GitHub API error (' + res.status + ')'));
+        return data;
+      });
+    });
+  }
+
+  if (ghExportBtn) {
+    ghExportBtn.addEventListener('click', function () {
+      const token = (ghTokenInput.value || '').trim();
+      if (!token) { setStatus('Enter a GitHub token first.', true); return; }
+      const explicitGistId = (ghGistIdInput.value || '').trim();
+      setStatus('Exporting to Gist…');
+      Promise.all([getSnippets(), explicitGistId ? Promise.resolve(explicitGistId) : storageGet(GITHUB_GIST_ID_KEY)])
+        .then(function (vals) {
+          const snippets = vals[0];
+          const gistId = vals[1];
+          const body = {
+            description: 'PVE Snippets backup',
+            public: false,
+            files: { [GIST_FILENAME]: { content: JSON.stringify(snippets, null, 2) } }
+          };
+          const req = gistId
+            ? githubRequest(token, '/gists/' + gistId, 'PATCH', body)
+            : githubRequest(token, '/gists', 'POST', body);
+          return req.then(function (gist) {
+            storageSet(GITHUB_TOKEN_KEY, token);
+            storageSet(GITHUB_GIST_ID_KEY, gist.id);
+            if (ghGistIdInput) ghGistIdInput.value = gist.id;
+            setStatus('Exported ' + snippets.length + ' snippet(s) to Gist.');
+          });
+        })
+        .catch(function (err) { setStatus('Export failed: ' + err.message, true); });
+    });
+  }
+
+  if (ghImportBtn) {
+    ghImportBtn.addEventListener('click', function () {
+      const token = (ghTokenInput.value || '').trim();
+      if (!token) { setStatus('Enter a GitHub token first.', true); return; }
+      const explicitGistId = (ghGistIdInput.value || '').trim();
+      setStatus('Importing from Gist…');
+      (explicitGistId ? Promise.resolve(explicitGistId) : storageGet(GITHUB_GIST_ID_KEY)).then(function (gistId) {
+        if (!gistId) { setStatus('No Gist linked yet -- paste a Gist ID above, or export first.', true); return; }
+        return githubRequest(token, '/gists/' + gistId, 'GET').then(function (gist) {
+          const file = gist.files && gist.files[GIST_FILENAME];
+          if (!file || !file.content) throw new Error('Gist has no ' + GIST_FILENAME + ' file.');
+          let list;
+          try { list = JSON.parse(file.content); } catch (_) { throw new Error('Gist content is not valid JSON.'); }
+          if (!Array.isArray(list)) throw new Error('Gist content is not a snippet list.');
+          const normalized = list.map(normalizeSnippet).filter(Boolean);
+          return mergeAndSaveSnippets(normalized).then(function (capped) {
+            storageSet(GITHUB_TOKEN_KEY, token);
+            storageSet(GITHUB_GIST_ID_KEY, gistId);
+            if (ghGistIdInput) ghGistIdInput.value = gistId;
+            setStatus('Imported from Gist. Total: ' + capped.length + '.');
+          });
+        });
+      }).catch(function (err) { setStatus('Import failed: ' + err.message, true); });
+    });
+  }
+
+  if (ghForgetBtn) {
+    ghForgetBtn.addEventListener('click', function () {
+      try {
+        const api = typeof chrome !== 'undefined' && chrome.storage && chrome.storage.local
+          ? chrome.storage.local
+          : typeof browser !== 'undefined' && browser.storage && browser.storage.local
+            ? browser.storage.local
+            : null;
+        if (api) api.remove([GITHUB_TOKEN_KEY, GITHUB_GIST_ID_KEY]);
+      } catch (_) {}
+      if (ghTokenInput) ghTokenInput.value = '';
+      if (ghGistIdInput) ghGistIdInput.value = '';
+      setStatus('GitHub token forgotten.');
     });
   }
 
