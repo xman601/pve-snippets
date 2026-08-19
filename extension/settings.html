@@ -378,6 +378,22 @@
         border-color: var(--accent);
         background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%23ea580c' stroke-width='2.2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'/%3E%3C/svg%3E");
       }
+      .setting-input input[type="password"],
+      .setting-input input[type="text"] {
+        width: 180px;
+        padding: 6px 10px;
+        font-size: 13px;
+        background: var(--bg);
+        border: 1px solid var(--border);
+        border-radius: var(--radius-sm);
+        color: var(--text);
+        font-family: inherit;
+      }
+      .setting-input input[type="password"]:focus,
+      .setting-input input[type="text"]:focus {
+        outline: none;
+        border-color: var(--accent);
+      }
 
       /* Backup section */
       .backup-actions {
@@ -446,6 +462,13 @@
         color: #fff;
       }
       .export-btn svg { width: 16px; height: 16px; stroke: currentColor; fill: none; }
+      .export-btn:disabled, .export-btn:disabled:hover {
+        opacity: 0.45;
+        cursor: not-allowed;
+        background: var(--surface);
+        border-color: var(--border);
+        color: var(--text);
+      }
       .btn-secondary {
         display: inline-flex;
         align-items: center;
@@ -724,6 +747,16 @@
                     </select>
                   </div>
                 </div>
+                <div class="setting-row">
+                  <div class="setting-label-cell">
+                    <label class="setting-label" for="settings-keyboard-layout">Keyboard layout</label>
+                    <span class="setting-info" title="The keyboard layout configured on the VM/guest OS you're pasting into (not necessarily your own keyboard). Mismatched layouts are why symbols and accented characters can come out wrong on non-US VMs." aria-label="Help"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg></span>
+                  </div>
+                  <div class="setting-input">
+                    <select id="settings-keyboard-layout"></select>
+                    <div id="settings-keyboard-layout-note" style="display:none;font-size:11px;color:var(--text-muted);margin-top:4px;">Detected from your browser — change this if your VM's guest OS uses a different layout.</div>
+                  </div>
+                </div>
               </div>
               <div class="subsection">
                 <div class="subsection-title">Compatibility</div>
@@ -756,6 +789,57 @@
                   <svg viewBox="0 0 24 24" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
                   Export all
                 </button>
+              </div>
+
+              <div class="subsection">
+                <div class="subsection-title">GitHub Gist Backup</div>
+                <div id="gh-import-prompt" style="display:none;align-items:center;gap:10px;justify-content:space-between;background:var(--accent-subtle);border:1px solid var(--accent);border-radius:var(--radius-sm);padding:10px 12px;margin-bottom:12px;font-size:12px;">
+                  <span>No snippets yet, but a Gist is linked on this device — import them?</span>
+                  <span style="display:flex;gap:8px;flex-shrink:0;">
+                    <button type="button" class="btn-secondary" id="gh-import-prompt-yes" style="padding:4px 10px;">Import</button>
+                    <button type="button" class="btn-secondary" id="gh-import-prompt-no" style="padding:4px 10px;">Dismiss</button>
+                  </span>
+                </div>
+                <div class="setting-row">
+                  <div class="setting-label-cell">
+                    <label class="setting-label" for="gh-token">Personal access token</label>
+                    <span class="setting-info" title="A GitHub token scoped to only 'gist'. Required to export or auto-sync (both write to the Gist). Optional if you only want to import from a public Gist someone shared with you -- e.g. a team template. Stored locally on this device only (chrome.storage.local) -- never synced, never sent anywhere except api.github.com." aria-label="Help"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg></span>
+                  </div>
+                  <div class="setting-input">
+                    <input type="password" id="gh-token" placeholder="ghp_..." autocomplete="off" />
+                  </div>
+                </div>
+                <div id="gh-no-token-warning" style="display:none;font-size:11px;color:var(--text-muted);margin:-4px 0 10px;">No token — Import will only work for a <strong>public</strong> Gist (read-only, rate-limited). Add a token to enable Export and auto-sync.</div>
+                <div class="setting-row">
+                  <div class="setting-label-cell">
+                    <label class="setting-label" for="gh-gist-id">Gist ID (optional)</label>
+                    <span class="setting-info" title="Leave blank to create a new Gist on first export, or to use the Gist ID this device already remembers. Paste an existing Gist ID here to link to it -- e.g. when setting up a new device to import from a Gist created elsewhere, or to import a public template Gist someone shared." aria-label="Help"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg></span>
+                  </div>
+                  <div class="setting-input">
+                    <input type="text" id="gh-gist-id" placeholder="auto" autocomplete="off" />
+                  </div>
+                </div>
+                <div class="setting-row">
+                  <div class="setting-label-cell">
+                    <label class="setting-label" for="gh-auto-sync">Auto-sync to Gist</label>
+                    <span class="setting-info" title="When enabled, every snippet change is pushed to the linked Gist automatically a couple seconds later. Requires exporting or importing once first to link a Gist." aria-label="Help"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg></span>
+                  </div>
+                  <div class="setting-input"><input type="checkbox" id="gh-auto-sync" /></div>
+                </div>
+                <div id="gh-auto-sync-note" style="display:none;font-size:11px;color:var(--text-muted);margin:-4px 0 6px;">Export or import once above to link a Gist first.</div>
+                <div id="gh-sync-status" style="font-size:11px;color:var(--text-muted);margin:0 0 10px;">Last synced: never</div>
+                <p style="font-size:11px;color:var(--text-muted);margin:2px 0 10px;">
+                  <a href="https://github.com/settings/tokens/new?scopes=gist&description=PVE%20Snippets" target="_blank" rel="noopener noreferrer">Create a gist-only token on GitHub</a>
+                  &mdash; secret gists are unlisted, not private; anyone with the link can view them.
+                </p>
+                <div class="backup-actions">
+                  <button type="button" class="export-btn" id="gh-export-btn">
+                    <svg viewBox="0 0 24 24" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+                    Export to Gist
+                  </button>
+                  <button type="button" class="btn-secondary" id="gh-import-btn">Import from Gist</button>
+                  <button type="button" class="btn-secondary" id="gh-forget-btn">Forget token</button>
+                </div>
               </div>
             </section>
           </div>
@@ -794,6 +878,7 @@
       </footer>
     </div>
 
+    <script src="keyboard-layouts.js"></script>
     <script src="snippets-manager.js"></script>
     <script src="settings.js"></script>
   </body>

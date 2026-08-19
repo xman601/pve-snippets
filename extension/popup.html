@@ -168,10 +168,12 @@
         color: var(--pmx-textMuted);
         flex: 1;
         min-width: 0;
-        overflow: hidden;
-        text-overflow: ellipsis;
-        white-space: nowrap;
+        white-space: normal;
+        word-break: break-word;
       }
+      /* Let the hint wrap to multiple lines (e.g. longer error messages) without
+         stretching the fixed-size buttons to match -- keep them pinned to the top. */
+      .pmx-footer { align-items: flex-start; }
 
       /* Snippets view */
       .pmx-snip-scroll {
@@ -423,6 +425,27 @@
         border-bottom: 1px solid var(--pmx-border);
         flex-shrink: 0;
       }
+      #pmx-update-banner {
+        display: none;
+        align-items: center;
+        gap: 8px;
+        padding: 7px 12px;
+        background: var(--pmx-bgPanel);
+        border-bottom: 1px solid var(--pmx-border);
+        font-size: 10px;
+        color: var(--pmx-text);
+        flex-shrink: 0;
+      }
+      #pmx-update-banner.open { display: flex; }
+      #pmx-update-banner .pmx-update-dot {
+        width: 6px; height: 6px; border-radius: 50%; background: var(--pmx-accent); flex-shrink: 0;
+      }
+      #pmx-update-banner .pmx-update-text { flex: 1; }
+      #pmx-update-banner .pmx-update-dismiss {
+        background: transparent; border: none; color: var(--pmx-textMuted); cursor: pointer;
+        font-size: 12px; line-height: 1; padding: 2px 4px; flex-shrink: 0;
+      }
+      #pmx-update-banner .pmx-update-dismiss:hover { color: var(--pmx-text); }
       .cp-settings-btn {
         position: absolute;
         top: 50%;
@@ -522,6 +545,11 @@
           <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"/>
         </svg>
       </a>
+    </div>
+    <div id="pmx-update-banner">
+      <span class="pmx-update-dot" aria-hidden="true"></span>
+      <span class="pmx-update-text" id="pmx-update-text"></span>
+      <button type="button" class="pmx-update-dismiss" id="pmx-update-dismiss" title="Dismiss" aria-label="Dismiss">&#10005;</button>
     </div>
     <header class="pmx-header">
       <div class="pmx-tabs">
