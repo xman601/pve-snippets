@@ -6,6 +6,14 @@
 
   const UPDATE_NOTICE_KEY = 'pmx_update_notice';
   const KEYBOARD_LAYOUT_KEY = 'pmx_keyboard_layout';
+  const SNIPPETS_KEY = 'pmx_snippets_v1';
+  const GITHUB_TOKEN_KEY = 'pmx_github_token';
+  const GITHUB_GIST_ID_KEY = 'pmx_github_gist_id';
+  const GITHUB_AUTO_SYNC_KEY = 'pmx_github_auto_sync';
+  const GITHUB_LAST_SYNC_KEY = 'pmx_github_last_sync';
+  const GIST_FILENAME = 'pve-snippets.json';
+  const GITHUB_API = 'https://api.github.com';
+  const AUTO_SYNC_DEBOUNCE_MS = 2000;
   const BADGE_COLOR = '#f60';
 
   // Best-effort guess from browser/OS locale. Only ever used as a first-run default —
@@ -66,6 +74,54 @@
 
   function clearBadge() {
     if (action && action.setBadgeText) action.setBadgeText({ text: '' });
+  }
+
+  // Auto-sync: whenever snippets change (from the popup, settings, or the snippets
+  // manager) and the user has opted in, debounce a push to the linked Gist so rapid
+  // edits collapse into one request. Runs here rather than in each UI page so it also
+  // fires when snippets change while no extension page is open.
+  function githubRequest(token, path, method, body) {
+    return fetch(GITHUB_API + path, {
+      method: method || 'GET',
+      headers: {
+        'Authorization': 'Bearer ' + token,
+        'Accept': 'application/vnd.github+json',
+        'Content-Type': 'application/json'
+      },
+      body: body ? JSON.stringify(body) : undefined
+    }).then(function (res) {
+      return res.json().catch(function () { return {}; }).then(function (data) {
+        if (!res.ok) throw new Error((data && data.message) || ('GitHub API error (' + res.status + ')'));
+        return data;
+      });
+    });
+  }
+
+  let autoSyncTimer = null;
+
+  function runAutoSync() {
+    if (!storage) return;
+    storage.get([GITHUB_AUTO_SYNC_KEY, GITHUB_TOKEN_KEY, GITHUB_GIST_ID_KEY, SNIPPETS_KEY]).then(function (res) {
+      const token = res[GITHUB_TOKEN_KEY];
+      const gistId = res[GITHUB_GIST_ID_KEY];
+      if (!res[GITHUB_AUTO_SYNC_KEY] || !token || !gistId) return;
+      const snippets = Array.isArray(res[SNIPPETS_KEY]) ? res[SNIPPETS_KEY] : [];
+      const body = { files: { [GIST_FILENAME]: { content: JSON.stringify(snippets, null, 2) } } };
+      return githubRequest(token, '/gists/' + gistId, 'PATCH', body)
+        .then(function () { storage.set({ [GITHUB_LAST_SYNC_KEY]: { time: Date.now(), ok: true } }); })
+        .catch(function (err) { storage.set({ [GITHUB_LAST_SYNC_KEY]: { time: Date.now(), ok: false, error: err.message } }); });
+    });
+  }
+
+  function scheduleAutoSync() {
+    if (autoSyncTimer) clearTimeout(autoSyncTimer);
+    autoSyncTimer = setTimeout(function () { autoSyncTimer = null; runAutoSync(); }, AUTO_SYNC_DEBOUNCE_MS);
+  }
+
+  if (storage && typeof chrome !== 'undefined' && chrome.storage && chrome.storage.onChanged) {
+    chrome.storage.onChanged.addListener(function (changes, area) {
+      if (area === 'local' && changes[SNIPPETS_KEY]) scheduleAutoSync();
+    });
   }
 
   if (runtime.onInstalled) {

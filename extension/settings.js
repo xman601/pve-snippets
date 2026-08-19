@@ -266,10 +266,31 @@
   }
   loadSettings();
 
+  // The footer status line doubles as a transient action-feedback toast and, when idle, a
+  // description of where data currently goes -- so it must stay honest about auto-sync
+  // being on, not just show whatever the last message happened to be forever (see
+  // statusBaseline, referenced below once ghAutoSync exists).
+  let statusRevertTimer = null;
+  function statusBaseline() {
+    const autoSyncing = Boolean(ghAutoSync && !ghAutoSync.disabled && ghAutoSync.checked);
+    return autoSyncing ? 'Auto-syncing snippets to GitHub Gist' : 'Data stays on this device';
+  }
   function setStatus(msg, isError) {
-    if (statusEl) {
-      statusEl.textContent = msg || '';
-      statusEl.className = isError ? 'error' : (msg ? 'success' : '');
+    if (!statusEl) return;
+    if (statusRevertTimer) { clearTimeout(statusRevertTimer); statusRevertTimer = null; }
+    if (!msg) {
+      statusEl.textContent = statusBaseline();
+      statusEl.className = '';
+      return;
+    }
+    statusEl.textContent = msg;
+    statusEl.className = isError ? 'error' : 'success';
+    if (!isError) {
+      statusRevertTimer = setTimeout(function () {
+        statusEl.textContent = statusBaseline();
+        statusEl.className = '';
+        statusRevertTimer = null;
+      }, 5000);
     }
   }
 
@@ -396,11 +417,15 @@
   }
 
   // ── GitHub Gist backup ──────────────────────────────────────────
-  // Token and linked Gist ID are local-only (chrome.storage.local), never synced --
-  // a GitHub token is a real secret and sync would hand it to the browser vendor's
-  // account infrastructure along with everything else that gets synced.
+  // Token, linked Gist ID, and the auto-sync preference are all local-only
+  // (chrome.storage.local), never synced -- a GitHub token is a real secret and
+  // sync would hand it to the browser vendor's account infrastructure along with
+  // everything else that gets synced. Auto-sync itself is pushed by background.js,
+  // which reacts to snippet changes even when this settings page isn't open.
   const GITHUB_TOKEN_KEY = 'pmx_github_token';
   const GITHUB_GIST_ID_KEY = 'pmx_github_gist_id';
+  const GITHUB_AUTO_SYNC_KEY = 'pmx_github_auto_sync';
+  const GITHUB_LAST_SYNC_KEY = 'pmx_github_last_sync';
   const GIST_FILENAME = 'pve-snippets.json';
   const GITHUB_API = 'https://api.github.com';
 
@@ -409,22 +434,43 @@
   const ghExportBtn = document.getElementById('gh-export-btn');
   const ghImportBtn = document.getElementById('gh-import-btn');
   const ghForgetBtn = document.getElementById('gh-forget-btn');
+  const ghAutoSync = document.getElementById('gh-auto-sync');
+  const ghAutoSyncNote = document.getElementById('gh-auto-sync-note');
+  const ghSyncStatus = document.getElementById('gh-sync-status');
+  const ghImportPrompt = document.getElementById('gh-import-prompt');
+  const ghImportPromptYes = document.getElementById('gh-import-prompt-yes');
+  const ghImportPromptNo = document.getElementById('gh-import-prompt-no');
+  const ghNoTokenWarning = document.getElementById('gh-no-token-warning');
+
+  // Export/auto-sync write to the Gist and always need a token; import only reads, and
+  // GitHub's API allows unauthenticated reads of public gists -- so a token is optional
+  // for import (e.g. pulling a public template someone shared), but Export stays disabled
+  // without one since there's no way to write anonymously.
+  function updateTokenDependentUI() {
+    const hasToken = Boolean(ghTokenInput && (ghTokenInput.value || '').trim());
+    if (ghExportBtn) ghExportBtn.disabled = !hasToken;
+    if (ghNoTokenWarning) ghNoTokenWarning.style.display = hasToken ? 'none' : 'block';
+  }
 
   if (ghTokenInput) {
-    storageGet(GITHUB_TOKEN_KEY).then(function (token) { if (token) ghTokenInput.value = token; });
+    storageGet(GITHUB_TOKEN_KEY).then(function (token) {
+      if (token) ghTokenInput.value = token;
+      updateTokenDependentUI();
+    });
+    ghTokenInput.addEventListener('input', updateTokenDependentUI);
+  } else {
+    updateTokenDependentUI();
   }
   if (ghGistIdInput) {
     storageGet(GITHUB_GIST_ID_KEY).then(function (id) { if (id) ghGistIdInput.value = id; });
   }
 
   function githubRequest(token, path, method, body) {
+    const headers = { 'Accept': 'application/vnd.github+json', 'Content-Type': 'application/json' };
+    if (token) headers['Authorization'] = 'Bearer ' + token;
     return fetch(GITHUB_API + path, {
       method: method || 'GET',
-      headers: {
-        'Authorization': 'Bearer ' + token,
-        'Accept': 'application/vnd.github+json',
-        'Content-Type': 'application/json'
-      },
+      headers: headers,
       body: body ? JSON.stringify(body) : undefined
     }).then(function (res) {
       return res.json().catch(function () { return {}; }).then(function (data) {
@@ -434,30 +480,91 @@
     });
   }
 
+  function doGistExport(token, explicitGistId) {
+    return Promise.all([getSnippets(), explicitGistId ? Promise.resolve(explicitGistId) : storageGet(GITHUB_GIST_ID_KEY)])
+      .then(function (vals) {
+        const snippets = vals[0];
+        const gistId = vals[1];
+        const body = {
+          description: 'PVE Snippets backup',
+          public: false,
+          files: { [GIST_FILENAME]: { content: JSON.stringify(snippets, null, 2) } }
+        };
+        const req = gistId
+          ? githubRequest(token, '/gists/' + gistId, 'PATCH', body)
+          : githubRequest(token, '/gists', 'POST', body);
+        return req.then(function (gist) {
+          storageSet(GITHUB_TOKEN_KEY, token);
+          storageSet(GITHUB_GIST_ID_KEY, gist.id);
+          storageSet(GITHUB_LAST_SYNC_KEY, { time: Date.now(), ok: true });
+          if (ghGistIdInput) ghGistIdInput.value = gist.id;
+          return snippets.length;
+        });
+      });
+  }
+
+  function doGistImport(token, explicitGistId) {
+    return (explicitGistId ? Promise.resolve(explicitGistId) : storageGet(GITHUB_GIST_ID_KEY)).then(function (gistId) {
+      if (!gistId) throw new Error('Enter a Gist ID to import from, or export once first to link one.');
+      return githubRequest(token, '/gists/' + gistId, 'GET').then(function (gist) {
+        const file = gist.files && gist.files[GIST_FILENAME];
+        if (!file || !file.content) throw new Error('Gist has no ' + GIST_FILENAME + ' file.');
+        let list;
+        try { list = JSON.parse(file.content); } catch (_) { throw new Error('Gist content is not valid JSON.'); }
+        if (!Array.isArray(list)) throw new Error('Gist content is not a snippet list.');
+        const normalized = list.map(normalizeSnippet).filter(Boolean);
+        return mergeAndSaveSnippets(normalized).then(function (capped) {
+          // Only "link" this Gist as the device's export/auto-sync target when a token was
+          // used -- an anonymous pull from someone else's public template (e.g. a shared
+          // starter set) shouldn't silently become the destination a later Export writes to.
+          if (token) {
+            storageSet(GITHUB_TOKEN_KEY, token);
+            storageSet(GITHUB_GIST_ID_KEY, gistId);
+            if (ghGistIdInput) ghGistIdInput.value = gistId;
+          }
+          return capped.length;
+        });
+      });
+    });
+  }
+
+  function formatSyncStatus(info) {
+    if (!info || !info.time) return 'Last synced: never';
+    const mins = Math.floor((Date.now() - info.time) / 60000);
+    const when = mins < 1 ? 'just now' : mins < 60 ? mins + 'm ago' : Math.floor(mins / 60) + 'h ago';
+    return info.ok === false ? ('Last sync failed (' + when + '): ' + (info.error || 'unknown error')) : ('Last synced: ' + when);
+  }
+
+  function refreshSyncStatus() {
+    if (!ghSyncStatus) return;
+    storageGet(GITHUB_LAST_SYNC_KEY).then(function (info) {
+      ghSyncStatus.textContent = formatSyncStatus(info);
+    });
+  }
+
+  function updateAutoSyncAvailability() {
+    if (!ghAutoSync) return Promise.resolve();
+    return Promise.all([storageGet(GITHUB_TOKEN_KEY), storageGet(GITHUB_GIST_ID_KEY), storageGet(GITHUB_AUTO_SYNC_KEY)])
+      .then(function (vals) {
+        const linked = Boolean(vals[0] && vals[1]);
+        ghAutoSync.disabled = !linked;
+        ghAutoSync.checked = linked && Boolean(vals[2]);
+        if (ghAutoSyncNote) ghAutoSyncNote.style.display = linked ? 'none' : 'block';
+        refreshSyncStatus();
+      });
+  }
+  updateAutoSyncAvailability().then(function () { setStatus(); });
+
   if (ghExportBtn) {
     ghExportBtn.addEventListener('click', function () {
       const token = (ghTokenInput.value || '').trim();
       if (!token) { setStatus('Enter a GitHub token first.', true); return; }
       const explicitGistId = (ghGistIdInput.value || '').trim();
       setStatus('Exporting to Gist…');
-      Promise.all([getSnippets(), explicitGistId ? Promise.resolve(explicitGistId) : storageGet(GITHUB_GIST_ID_KEY)])
-        .then(function (vals) {
-          const snippets = vals[0];
-          const gistId = vals[1];
-          const body = {
-            description: 'PVE Snippets backup',
-            public: false,
-            files: { [GIST_FILENAME]: { content: JSON.stringify(snippets, null, 2) } }
-          };
-          const req = gistId
-            ? githubRequest(token, '/gists/' + gistId, 'PATCH', body)
-            : githubRequest(token, '/gists', 'POST', body);
-          return req.then(function (gist) {
-            storageSet(GITHUB_TOKEN_KEY, token);
-            storageSet(GITHUB_GIST_ID_KEY, gist.id);
-            if (ghGistIdInput) ghGistIdInput.value = gist.id;
-            setStatus('Exported ' + snippets.length + ' snippet(s) to Gist.');
-          });
+      doGistExport(token, explicitGistId)
+        .then(function (count) {
+          setStatus('Exported ' + count + ' snippet(s) to Gist.');
+          updateAutoSyncAvailability();
         })
         .catch(function (err) { setStatus('Export failed: ' + err.message, true); });
     });
@@ -466,26 +573,15 @@
   if (ghImportBtn) {
     ghImportBtn.addEventListener('click', function () {
       const token = (ghTokenInput.value || '').trim();
-      if (!token) { setStatus('Enter a GitHub token first.', true); return; }
       const explicitGistId = (ghGistIdInput.value || '').trim();
       setStatus('Importing from Gist…');
-      (explicitGistId ? Promise.resolve(explicitGistId) : storageGet(GITHUB_GIST_ID_KEY)).then(function (gistId) {
-        if (!gistId) { setStatus('No Gist linked yet -- paste a Gist ID above, or export first.', true); return; }
-        return githubRequest(token, '/gists/' + gistId, 'GET').then(function (gist) {
-          const file = gist.files && gist.files[GIST_FILENAME];
-          if (!file || !file.content) throw new Error('Gist has no ' + GIST_FILENAME + ' file.');
-          let list;
-          try { list = JSON.parse(file.content); } catch (_) { throw new Error('Gist content is not valid JSON.'); }
-          if (!Array.isArray(list)) throw new Error('Gist content is not a snippet list.');
-          const normalized = list.map(normalizeSnippet).filter(Boolean);
-          return mergeAndSaveSnippets(normalized).then(function (capped) {
-            storageSet(GITHUB_TOKEN_KEY, token);
-            storageSet(GITHUB_GIST_ID_KEY, gistId);
-            if (ghGistIdInput) ghGistIdInput.value = gistId;
-            setStatus('Imported from Gist. Total: ' + capped.length + '.');
-          });
-        });
-      }).catch(function (err) { setStatus('Import failed: ' + err.message, true); });
+      doGistImport(token, explicitGistId)
+        .then(function (total) {
+          setStatus('Imported from Gist. Total: ' + total + '.');
+          updateAutoSyncAvailability();
+          if (ghImportPrompt) ghImportPrompt.style.display = 'none';
+        })
+        .catch(function (err) { setStatus('Import failed: ' + err.message, true); });
     });
   }
 
@@ -497,12 +593,62 @@
           : typeof browser !== 'undefined' && browser.storage && browser.storage.local
             ? browser.storage.local
             : null;
-        if (api) api.remove([GITHUB_TOKEN_KEY, GITHUB_GIST_ID_KEY]);
+        if (api) api.remove([GITHUB_TOKEN_KEY, GITHUB_GIST_ID_KEY, GITHUB_AUTO_SYNC_KEY, GITHUB_LAST_SYNC_KEY]);
       } catch (_) {}
       if (ghTokenInput) ghTokenInput.value = '';
       if (ghGistIdInput) ghGistIdInput.value = '';
       setStatus('GitHub token forgotten.');
+      updateAutoSyncAvailability();
+      updateTokenDependentUI();
     });
+  }
+
+  if (ghAutoSync) {
+    ghAutoSync.addEventListener('change', function () {
+      const checked = ghAutoSync.checked;
+      storageSet(GITHUB_AUTO_SYNC_KEY, checked);
+      if (!checked) { setStatus('Auto-sync disabled.'); return; }
+      // Sync immediately on enable so turning the toggle on has visible effect right away,
+      // rather than waiting for the next snippet edit to trigger background.js's auto-sync.
+      Promise.all([storageGet(GITHUB_TOKEN_KEY), storageGet(GITHUB_GIST_ID_KEY)]).then(function (vals) {
+        if (!vals[0] || !vals[1]) return;
+        setStatus('Syncing…');
+        doGistExport(vals[0], vals[1])
+          .then(function () { setStatus('Auto-sync enabled.'); refreshSyncStatus(); })
+          .catch(function (err) { setStatus('Auto-sync enable failed: ' + err.message, true); });
+      });
+    });
+  }
+
+  // Live-update the "last synced" status if background.js auto-syncs while this page is open.
+  if (typeof chrome !== 'undefined' && chrome.storage && chrome.storage.onChanged) {
+    chrome.storage.onChanged.addListener(function (changes, area) {
+      if (area === 'local' && changes[GITHUB_LAST_SYNC_KEY]) refreshSyncStatus();
+    });
+  }
+
+  // Offer to import when starting from zero snippets but a Gist is already linked on this
+  // device (e.g. a fresh profile/reinstall where the token+gist ID survived but snippets didn't).
+  if (ghImportPrompt) {
+    Promise.all([getSnippets(), storageGet(GITHUB_TOKEN_KEY), storageGet(GITHUB_GIST_ID_KEY)]).then(function (vals) {
+      if (vals[0].length === 0 && vals[1] && vals[2]) ghImportPrompt.style.display = 'flex';
+    });
+    if (ghImportPromptYes) {
+      ghImportPromptYes.addEventListener('click', function () {
+        const token = (ghTokenInput.value || '').trim();
+        setStatus('Importing from Gist…');
+        doGistImport(token, (ghGistIdInput.value || '').trim())
+          .then(function (total) {
+            setStatus('Imported from Gist. Total: ' + total + '.');
+            ghImportPrompt.style.display = 'none';
+            updateAutoSyncAvailability();
+          })
+          .catch(function (err) { setStatus('Import failed: ' + err.message, true); });
+      });
+    }
+    if (ghImportPromptNo) {
+      ghImportPromptNo.addEventListener('click', function () { ghImportPrompt.style.display = 'none'; });
+    }
   }
 
   // Sidebar nav: switch settings panel

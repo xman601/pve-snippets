@@ -134,12 +134,13 @@ const FR_LAYOUT = buildLayout({
 const DEFAULT_KEYBOARD_LAYOUT = 'us';
 const KEYBOARD_LAYOUTS = { us: buildUsLayout(), uk: UK_LAYOUT, de: DE_LAYOUT, fr: FR_LAYOUT };
 
-// Resolve a character to {code, shift, altGr} for the given layout table, with a
-// best-effort fallback for characters the table doesn't cover (key/keyCode still carry
-// the real character, so keysym-based interpreters resolve it correctly either way).
+// Resolve a character to {code, shift, altGr} for the given layout table, or undefined
+// if this layout has no way to produce it (e.g. a dead-key gap like German '^' -- see
+// its comment above). Callers must skip the character rather than invent a code: a
+// fabricated {code, keyCode} pair that doesn't correspond to any real physical key isn't
+// just ignored by real VNC/guest keyboard stacks the way a missing entry is -- it can be
+// silently reinterpreted as a *different*, wrong character (confirmed against a real VM:
+// German '^', with no table entry, came out as '6').
 function resolveKey(layoutTable, char) {
-  const entry = layoutTable[char];
-  if (entry) return entry;
-  const c = char.charCodeAt(0);
-  return { code: (c >= 32 && c <= 126 ? 'Key' + char.toUpperCase() : 'KeyA'), shift: false, altGr: false };
+  return layoutTable[char];
 }

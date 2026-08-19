@@ -46,13 +46,13 @@ Preference values — paste timing, keyboard layout, panel position, and similar
 
 ### Optional: GitHub Gist backup
 
-The Backup panel in Settings offers an **opt-in, manual** way to back up your snippets to a GitHub Gist:
+The Backup panel in Settings offers an **opt-in** way to back up your snippets to a GitHub Gist, either manually or automatically:
 
-- You provide a GitHub **personal access token** (ideally scoped to only the `gist` permission). This token is stored in `chrome.storage.local` on your device only — never synced, never sent anywhere except directly to `api.github.com` when you click Export or Import.
+- You provide a GitHub **personal access token** (ideally scoped to only the `gist` permission). This token is stored in `chrome.storage.local` on your device only — never synced, never sent anywhere except directly to `api.github.com`.
 - Clicking **Export to Gist** sends your current snippets to a Gist created (or updated) under your GitHub account via the GitHub API, over HTTPS, directly from your browser. Clicking **Import from Gist** reads them back the same way.
-- This is a one-shot action you trigger yourself — there is no automatic or background sync to GitHub.
+- The **Auto-sync to Gist** toggle (off by default, and disabled until a Gist is linked via one manual export/import) pushes an update to the Gist automatically a couple of seconds after any snippet change, without further action from you. It runs from the extension's background service worker, so it can also fire while no extension page is open. It never pulls changes down automatically — importing is always a deliberate action.
 - GitHub Gists created this way are **secret**, not private: anyone with the Gist's URL can view its contents, even though it won't appear in GitHub search or your public profile. Treat the Gist URL accordingly.
-- You can remove the stored token at any time with the **Forget token** button, which also clears it from local storage.
+- You can remove the stored token at any time with the **Forget token** button, which also clears it and turns off auto-sync.
 
 ---
 

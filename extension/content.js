@@ -77,8 +77,13 @@
 
   // Send a single character to the noVNC canvas using keyboard events
   function sendChar(canvas, char, layoutTable) {
+    const resolved = resolveKey(layoutTable, char);
+    if (!resolved) {
+      console.warn('[PVE Snippets] Skipping character with no key mapping for this keyboard layout:', JSON.stringify(char));
+      return false;
+    }
     const keyCode = char.charCodeAt(0);
-    const { code, shift, altGr } = resolveKey(layoutTable, char);
+    const { code, shift, altGr } = resolved;
 
     const baseOpts = { bubbles: true, cancelable: true };
 
@@ -111,6 +116,7 @@
         ...baseOpts, key: 'Shift', code: 'ShiftLeft', keyCode: 16, which: 16, shiftKey: false
       }));
     }
+    return true;
   }
 
   // Release modifier and 'v' on the canvas so the VM is not left with Ctrl/Cmd+V "held"
@@ -192,6 +198,7 @@
     canvas.focus();
     const normalized = text.replace(/\r\n/g, '\n');
     let i = 0;
+    let skipped = 0;
 
     function sendNext() {
       if (cancelledRef && cancelledRef.cancelled) {
@@ -204,7 +211,9 @@
             setTimeout(function () { sendEnter(canvas); }, delayMs);
           }
         });
-        showToast('\u2713 Pasted ' + normalized.length + ' characters');
+        showToast(skipped > 0
+          ? '\u26a0 Pasted ' + (normalized.length - skipped) + ' characters, skipped ' + skipped + ' unsupported for this keyboard layout'
+          : '\u2713 Pasted ' + normalized.length + ' characters');
         if (onComplete) onComplete(false);
         return;
       }
@@ -214,7 +223,7 @@
         i++;
         setTimeout(sendNext, delayMs + afterEnterMs);
       } else {
-        sendChar(canvas, char, layoutTable);
+        if (!sendChar(canvas, char, layoutTable)) skipped++;
         i++;
         let nextDelay = delayMs;
         if (compatLongPaste && i > 0 && i % COMPAT_CHUNK_CHARS === 0) {
