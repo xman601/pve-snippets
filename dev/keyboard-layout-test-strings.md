@@ -95,6 +95,67 @@ Punctuation/quoting:
 
 ---
 
+## Spanish QWERTY (draft — unverified)
+
+Spain's dedicated key (ñ) plus the acute/diaeresis dead-key mechanism for the vowels
+Spanish text actually uses constantly. AltGr symbols and ¿/¡ are deliberately unmapped
+(not guessed) — see `keyboard-layouts.js`.
+
+```
+El niño pequeño mañana: ñÑ
+```
+
+```
+sábado café médico canción única: áéíóú ÁÉÍÓÚ
+pingüino bilingüe: üÜ
+```
+
+## Italian QWERTY (draft — unverified)
+
+Dedicated keys for the five core accented vowels, not dead-key composed.
+
+```
+città più caffè però virtù: àèìòù
+```
+
+## Portuguese QWERTY (draft — unverified)
+
+ç/Ç dedicated key, plus four separate dead keys (acute/grave/circumflex/tilde) for the
+vowel forms Portuguese actually uses.
+
+```
+coração calção: çÇ
+```
+
+```
+café inglês órgão amanhã à noite: áéíóú âêô ãõ à
+```
+
+## Dutch QWERTY (draft — unverified)
+
+Acute and diaeresis dead keys — Dutch rarely needs these, so this is a light test.
+
+```
+café ïdee vóór coördinatie: éáíóú ëïöü
+```
+
+## Dead-key mechanics sanity check (any of the three layouts above)
+
+On the **mock console**, the dead key alone should render **nothing** (not `░` — it's
+genuinely pending, waiting for the next keystroke). Watch the raw event log: you should
+see two keydown/keyup pairs for one output character. If a pending dead key is followed
+by something that doesn't combine with it (e.g. a consonant), it should fall through to
+whatever that key normally produces rather than silently vanishing.
+
+## Canadian English / Australian-NZ / Irish
+
+These alias directly to the existing US/UK tables (see `keyboard-layouts.js`) — no new
+data, so the US and UK blocks above already cover them. Selecting "Canadian English"
+should behave byte-for-byte identically to "US QWERTY", and "Australian / NZ" or "Irish"
+identically to "UK QWERTY".
+
+---
+
 ## Deliberate mismatch (reproduces the original bug reports)
 
 Set the extension's layout to one value and the mock's **Simulated guest layout** to

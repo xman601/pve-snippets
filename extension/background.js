@@ -1,6 +1,16 @@
 // PVE Snippets - Background service worker
 // Tracks extension updates so the popup/console panel can tell the user about them.
 
+// Pulls in guessKeyboardLayoutFromLocale/DEFAULT_KEYBOARD_LAYOUT -- classic (non-module)
+// service workers can importScripts() a sibling file, so the locale-guess table only has
+// to be maintained once, in keyboard-layouts.js, instead of duplicated here. Guarded
+// because manifest.json's background block also lists "scripts" for older Firefox, which
+// runs this file as a plain background page (not a worker), where importScripts doesn't
+// exist -- detectLayoutFromLanguage() below falls back to a safe default in that case.
+if (typeof importScripts === 'function') {
+  importScripts('keyboard-layouts.js');
+}
+
 (function () {
   'use strict';
 
@@ -19,12 +29,9 @@
   // Best-effort guess from browser/OS locale. Only ever used as a first-run default —
   // it reflects the machine running the browser, not the VM's configured guest layout.
   function detectLayoutFromLanguage() {
+    if (typeof guessKeyboardLayoutFromLocale !== 'function') return 'us';
     const lang = (typeof navigator !== 'undefined' && (navigator.language || (navigator.languages && navigator.languages[0]))) || '';
-    const l = lang.toLowerCase();
-    if (l.startsWith('fr')) return 'fr';
-    if (l.startsWith('de')) return 'de';
-    if (l === 'en-gb' || l.startsWith('en-gb')) return 'uk';
-    return 'us';
+    return guessKeyboardLayoutFromLocale(lang);
   }
 
   const runtime = typeof chrome !== 'undefined' && chrome.runtime

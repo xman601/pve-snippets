@@ -753,12 +753,7 @@
                     <span class="setting-info" title="The keyboard layout configured on the VM/guest OS you're pasting into (not necessarily your own keyboard). Mismatched layouts are why symbols and accented characters can come out wrong on non-US VMs." aria-label="Help"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg></span>
                   </div>
                   <div class="setting-input">
-                    <select id="settings-keyboard-layout">
-                      <option value="us">US QWERTY</option>
-                      <option value="uk">UK QWERTY</option>
-                      <option value="de">German QWERTZ</option>
-                      <option value="fr">French AZERTY</option>
-                    </select>
+                    <select id="settings-keyboard-layout"></select>
                     <div id="settings-keyboard-layout-note" style="display:none;font-size:11px;color:var(--text-muted);margin-top:4px;">Detected from your browser — change this if your VM's guest OS uses a different layout.</div>
                   </div>
                 </div>
@@ -883,6 +878,7 @@
       </footer>
     </div>
 
+    <script src="keyboard-layouts.js"></script>
     <script src="snippets-manager.js"></script>
     <script src="settings.js"></script>
   </body>

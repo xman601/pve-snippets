@@ -13,7 +13,10 @@
   const COMPAT_MODE_KEY = 'pmx_compat_mode';
   const KEYBOARD_LAYOUT_KEY = 'pmx_keyboard_layout';
   const KEYBOARD_LAYOUT_USER_SET_KEY = 'pmx_keyboard_layout_user_set';
-  const KEYBOARD_LAYOUTS = ['us', 'uk', 'de', 'fr'];
+  // KEYBOARD_LAYOUTS/KEYBOARD_LAYOUT_LABELS/guessKeyboardLayoutFromLocale come from
+  // keyboard-layouts.js, loaded before this file (see settings.html) -- the same source
+  // content.js and dev/mock-console.js use, so the dropdown below and the auto-detect
+  // guess can't drift from what the extension actually supports.
   const MAX_SNIPPETS = 200;
   const DEFAULT_KEYSTROKE_DELAY_MS = 20;
   const DEFAULT_FIRST_CHAR_DELAY_MS = 40;
@@ -32,6 +35,16 @@
   const settingsPanelPosition = document.getElementById('settings-panel-position');
   const settingsKeyboardLayout = document.getElementById('settings-keyboard-layout');
   const settingsKeyboardLayoutNote = document.getElementById('settings-keyboard-layout-note');
+  // Populated from KEYBOARD_LAYOUT_LABELS (keyboard-layouts.js) so a new layout added
+  // there shows up here automatically, with no separate option list to keep in sync.
+  if (settingsKeyboardLayout) {
+    Object.keys(KEYBOARD_LAYOUTS).forEach(function (code) {
+      const opt = document.createElement('option');
+      opt.value = code;
+      opt.textContent = KEYBOARD_LAYOUT_LABELS[code] || code;
+      settingsKeyboardLayout.appendChild(opt);
+    });
+  }
   function storageGet(key) {
     return new Promise(function (resolve) {
       try {
@@ -115,24 +128,24 @@
     });
   }
 
-  // Best-effort guesses at the layout of the machine running the browser — used only to
-  // pre-fill a first-run default, never to override an explicit user choice.
+  // Best-effort guess at the layout of the machine running the browser — used only to
+  // pre-fill a first-run default, never to override an explicit user choice. Delegates to
+  // the shared locale table in keyboard-layouts.js so a new layout's guess only needs
+  // adding in one place.
   function detectLayoutFromLanguage() {
-    const lang = (navigator.language || (navigator.languages && navigator.languages[0])) || '';
-    const l = lang.toLowerCase();
-    if (l.startsWith('fr')) return 'fr';
-    if (l.startsWith('de')) return 'de';
-    if (l === 'en-gb' || l.startsWith('en-gb')) return 'uk';
-    return 'us';
+    return guessKeyboardLayoutFromLocale(navigator.language || (navigator.languages && navigator.languages[0]) || '');
   }
 
   // More accurate than locale, but Chrome/Edge only: inspects which characters the
-  // physical keys actually produce on the current OS keyboard layout.
+  // physical keys actually produce on the current OS keyboard layout. Only layouts with a
+  // single, distinctive key are checked here -- draft layouts we're less sure of (Italian,
+  // Portuguese, Dutch) are deliberately left to the locale guess rather than a shaky check.
   function detectLayoutFromKeyboardMap() {
     if (!navigator.keyboard || !navigator.keyboard.getLayoutMap) return Promise.resolve(null);
     return navigator.keyboard.getLayoutMap().then(function (map) {
       if (map.get('KeyQ') === 'a') return 'fr';
       if (map.get('KeyY') === 'z') return 'de';
+      if (map.get('Semicolon') === 'ñ') return 'es';
       if (map.get('Backslash') === '#') return 'uk';
       return 'us';
     }).catch(function () { return null; });
@@ -180,7 +193,7 @@
       if (settingsKeyboardLayout) {
         const layout = results[9];
         const userSet = Boolean(results[10]);
-        settingsKeyboardLayout.value = KEYBOARD_LAYOUTS.includes(layout) ? layout : 'us';
+        settingsKeyboardLayout.value = Object.prototype.hasOwnProperty.call(KEYBOARD_LAYOUTS, layout) ? layout : 'us';
         if (settingsKeyboardLayoutNote) settingsKeyboardLayoutNote.style.display = (!userSet && layout) ? 'block' : 'none';
         if (!userSet) {
           detectLayoutFromKeyboardMap().then(function (detected) {

@@ -75,16 +75,12 @@
     });
   }
 
-  // Send a single character to the noVNC canvas using keyboard events
-  function sendChar(canvas, char, layoutTable) {
-    const resolved = resolveKey(layoutTable, char);
-    if (!resolved) {
-      console.warn('[PVE Snippets] Skipping character with no key mapping for this keyboard layout:', JSON.stringify(char));
-      return false;
-    }
-    const keyCode = char.charCodeAt(0);
-    const { code, shift, altGr } = resolved;
-
+  // Send one physical keystroke {code, shift, altGr} to the canvas. eventKey/eventKeyCode
+  // are what's reported as the event's `key`/`keyCode` -- for a normal character these are
+  // the character itself; for the dead-key step of a composed character (see sendChar)
+  // there's no printable result yet, so callers pass 'Dead'/0 instead.
+  function sendKeystroke(canvas, keystroke, eventKey, eventKeyCode) {
+    const { code, shift, altGr } = keystroke;
     const baseOpts = { bubbles: true, cancelable: true };
 
     if (shift) {
@@ -99,7 +95,8 @@
     }
 
     const keyEventOpts = {
-      ...baseOpts, key: char, code, keyCode, which: keyCode, charCode: keyCode, shiftKey: shift, altKey: altGr
+      ...baseOpts, key: eventKey, code, keyCode: eventKeyCode, which: eventKeyCode,
+      charCode: eventKeyCode, shiftKey: shift, altKey: altGr
     };
 
     canvas.dispatchEvent(new KeyboardEvent('keydown', keyEventOpts));
@@ -116,6 +113,25 @@
         ...baseOpts, key: 'Shift', code: 'ShiftLeft', keyCode: 16, which: 16, shiftKey: false
       }));
     }
+  }
+
+  // Send a single character to the noVNC canvas. Most characters are one physical keystroke,
+  // but some (e.g. Spanish "á") are composed from a dead key followed by a base letter --
+  // resolveKey() returns either shape (see its comment in keyboard-layouts.js). For a
+  // dead-key sequence we send both keystrokes in order and let the guest OS's own dead-key
+  // composition combine them, exactly like a real keyboard would.
+  function sendChar(canvas, char, layoutTable) {
+    const resolved = resolveKey(layoutTable, char);
+    if (!resolved) {
+      console.warn('[PVE Snippets] Skipping character with no key mapping for this keyboard layout:', JSON.stringify(char));
+      return false;
+    }
+    const keyCode = char.charCodeAt(0);
+    const sequence = Array.isArray(resolved) ? resolved : [resolved];
+    sequence.forEach(function (keystroke, i) {
+      const isFinal = i === sequence.length - 1;
+      sendKeystroke(canvas, keystroke, isFinal ? char : 'Dead', isFinal ? keyCode : 0);
+    });
     return true;
   }
 
