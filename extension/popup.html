@@ -168,10 +168,12 @@
         color: var(--pmx-textMuted);
         flex: 1;
         min-width: 0;
-        overflow: hidden;
-        text-overflow: ellipsis;
-        white-space: nowrap;
+        white-space: normal;
+        word-break: break-word;
       }
+      /* Let the hint wrap to multiple lines (e.g. longer error messages) without
+         stretching the fixed-size buttons to match -- keep them pinned to the top. */
+      .pmx-footer { align-items: flex-start; }
 
       /* Snippets view */
       .pmx-snip-scroll {

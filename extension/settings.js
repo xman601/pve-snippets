@@ -13,7 +13,10 @@
   const COMPAT_MODE_KEY = 'pmx_compat_mode';
   const KEYBOARD_LAYOUT_KEY = 'pmx_keyboard_layout';
   const KEYBOARD_LAYOUT_USER_SET_KEY = 'pmx_keyboard_layout_user_set';
-  const KEYBOARD_LAYOUTS = ['us', 'uk', 'de', 'fr'];
+  // KEYBOARD_LAYOUTS/KEYBOARD_LAYOUT_LABELS/guessKeyboardLayoutFromLocale come from
+  // keyboard-layouts.js, loaded before this file (see settings.html) -- the same source
+  // content.js and dev/mock-console.js use, so the dropdown below and the auto-detect
+  // guess can't drift from what the extension actually supports.
   const MAX_SNIPPETS = 200;
   const DEFAULT_KEYSTROKE_DELAY_MS = 20;
   const DEFAULT_FIRST_CHAR_DELAY_MS = 40;
@@ -32,6 +35,16 @@
   const settingsPanelPosition = document.getElementById('settings-panel-position');
   const settingsKeyboardLayout = document.getElementById('settings-keyboard-layout');
   const settingsKeyboardLayoutNote = document.getElementById('settings-keyboard-layout-note');
+  // Populated from KEYBOARD_LAYOUT_LABELS (keyboard-layouts.js) so a new layout added
+  // there shows up here automatically, with no separate option list to keep in sync.
+  if (settingsKeyboardLayout) {
+    Object.keys(KEYBOARD_LAYOUTS).forEach(function (code) {
+      const opt = document.createElement('option');
+      opt.value = code;
+      opt.textContent = KEYBOARD_LAYOUT_LABELS[code] || code;
+      settingsKeyboardLayout.appendChild(opt);
+    });
+  }
   function storageGet(key) {
     return new Promise(function (resolve) {
       try {
@@ -66,24 +79,73 @@
     });
   }
 
-  // Best-effort guesses at the layout of the machine running the browser — used only to
-  // pre-fill a first-run default, never to override an explicit user choice.
+  // Settings sync via chrome.storage.sync (falls back to local storage when sync is
+  // unavailable -- e.g. Firefox without Sync signed in, or sync disabled by policy/quota).
+  // Snippets are never synced (chrome.storage.sync's 8KB-per-item / 100KB-total quota
+  // is far too small for a snippet list) -- those stay on storageGet/storageSet + local.
+  function getSyncApi() {
+    try {
+      return typeof chrome !== 'undefined' && chrome.storage && chrome.storage.sync
+        ? chrome.storage.sync
+        : typeof browser !== 'undefined' && browser.storage && browser.storage.sync
+          ? browser.storage.sync
+          : null;
+    } catch (_) { return null; }
+  }
+
+  function syncGet(key) {
+    return new Promise(function (resolve) {
+      const api = getSyncApi();
+      if (!api) { storageGet(key).then(resolve); return; }
+      try {
+        api.get([key], function (res) {
+          const err = typeof chrome !== 'undefined' && chrome.runtime && chrome.runtime.lastError;
+          if (err || res[key] === undefined) {
+            // Not synced yet -- fall back to (and migrate up) any pre-existing local value.
+            storageGet(key).then(function (localVal) {
+              if (!err && localVal !== undefined) syncSet(key, localVal);
+              resolve(localVal);
+            });
+            return;
+          }
+          resolve(res[key]);
+        });
+      } catch (_) { storageGet(key).then(resolve); }
+    });
+  }
+
+  function syncSet(key, value) {
+    return new Promise(function (resolve) {
+      const api = getSyncApi();
+      if (!api) { storageSet(key, value).then(resolve); return; }
+      try {
+        api.set({ [key]: value }, function () {
+          const err = typeof chrome !== 'undefined' && chrome.runtime && chrome.runtime.lastError;
+          if (err) { storageSet(key, value).then(resolve); return; }
+          resolve();
+        });
+      } catch (_) { storageSet(key, value).then(resolve); }
+    });
+  }
+
+  // Best-effort guess at the layout of the machine running the browser — used only to
+  // pre-fill a first-run default, never to override an explicit user choice. Delegates to
+  // the shared locale table in keyboard-layouts.js so a new layout's guess only needs
+  // adding in one place.
   function detectLayoutFromLanguage() {
-    const lang = (navigator.language || (navigator.languages && navigator.languages[0])) || '';
-    const l = lang.toLowerCase();
-    if (l.startsWith('fr')) return 'fr';
-    if (l.startsWith('de')) return 'de';
-    if (l === 'en-gb' || l.startsWith('en-gb')) return 'uk';
-    return 'us';
+    return guessKeyboardLayoutFromLocale(navigator.language || (navigator.languages && navigator.languages[0]) || '');
   }
 
   // More accurate than locale, but Chrome/Edge only: inspects which characters the
-  // physical keys actually produce on the current OS keyboard layout.
+  // physical keys actually produce on the current OS keyboard layout. Only layouts with a
+  // single, distinctive key are checked here -- draft layouts we're less sure of (Italian,
+  // Portuguese, Dutch) are deliberately left to the locale guess rather than a shaky check.
   function detectLayoutFromKeyboardMap() {
     if (!navigator.keyboard || !navigator.keyboard.getLayoutMap) return Promise.resolve(null);
     return navigator.keyboard.getLayoutMap().then(function (map) {
       if (map.get('KeyQ') === 'a') return 'fr';
       if (map.get('KeyY') === 'z') return 'de';
+      if (map.get('Semicolon') === 'ñ') return 'es';
       if (map.get('Backslash') === '#') return 'uk';
       return 'us';
     }).catch(function () { return null; });
@@ -91,17 +153,17 @@
 
   function loadSettings() {
     Promise.all([
-      storageGet(AUTO_ENTER_KEY),
-      storageGet(KEYSTROKE_DELAY_KEY),
-      storageGet(FIRST_CHAR_DELAY_KEY),
-      storageGet(ENTER_DELAY_KEY),
-      storageGet(COMPAT_MODE_KEY),
-      storageGet(SHORTCUT_PASTE_ENABLED_KEY),
-      storageGet(POPUP_DEFAULT_TAB_KEY),
-      storageGet(PANEL_OPEN_KEY),
-      storageGet(PANEL_POSITION_KEY),
-      storageGet(KEYBOARD_LAYOUT_KEY),
-      storageGet(KEYBOARD_LAYOUT_USER_SET_KEY)
+      syncGet(AUTO_ENTER_KEY),
+      syncGet(KEYSTROKE_DELAY_KEY),
+      syncGet(FIRST_CHAR_DELAY_KEY),
+      syncGet(ENTER_DELAY_KEY),
+      syncGet(COMPAT_MODE_KEY),
+      syncGet(SHORTCUT_PASTE_ENABLED_KEY),
+      syncGet(POPUP_DEFAULT_TAB_KEY),
+      syncGet(PANEL_OPEN_KEY),
+      syncGet(PANEL_POSITION_KEY),
+      syncGet(KEYBOARD_LAYOUT_KEY),
+      syncGet(KEYBOARD_LAYOUT_USER_SET_KEY)
     ]).then(function (results) {
       if (settingsAutoEnter) settingsAutoEnter.checked = Boolean(results[0]);
       if (settingsKeystrokeDelay) {
@@ -131,13 +193,13 @@
       if (settingsKeyboardLayout) {
         const layout = results[9];
         const userSet = Boolean(results[10]);
-        settingsKeyboardLayout.value = KEYBOARD_LAYOUTS.includes(layout) ? layout : 'us';
+        settingsKeyboardLayout.value = Object.prototype.hasOwnProperty.call(KEYBOARD_LAYOUTS, layout) ? layout : 'us';
         if (settingsKeyboardLayoutNote) settingsKeyboardLayoutNote.style.display = (!userSet && layout) ? 'block' : 'none';
         if (!userSet) {
           detectLayoutFromKeyboardMap().then(function (detected) {
             if (!detected || detected === settingsKeyboardLayout.value) return;
             settingsKeyboardLayout.value = detected;
-            storageSet(KEYBOARD_LAYOUT_KEY, detected);
+            syncSet(KEYBOARD_LAYOUT_KEY, detected);
             if (settingsKeyboardLayoutNote) settingsKeyboardLayoutNote.style.display = 'block';
           });
         }
@@ -147,80 +209,101 @@
 
   if (settingsAutoEnter) {
     settingsAutoEnter.addEventListener('change', function () {
-      storageSet(AUTO_ENTER_KEY, settingsAutoEnter.checked);
+      syncSet(AUTO_ENTER_KEY, settingsAutoEnter.checked);
     });
   }
   if (settingsKeystrokeDelay) {
     settingsKeystrokeDelay.addEventListener('change', function () {
       const val = Math.max(0, Math.min(500, Number(settingsKeystrokeDelay.value) || DEFAULT_KEYSTROKE_DELAY_MS));
-      storageSet(KEYSTROKE_DELAY_KEY, val);
+      syncSet(KEYSTROKE_DELAY_KEY, val);
       settingsKeystrokeDelay.value = String(val);
     });
     settingsKeystrokeDelay.addEventListener('input', function () {
       const val = Math.max(0, Math.min(500, Number(settingsKeystrokeDelay.value) || DEFAULT_KEYSTROKE_DELAY_MS));
-      storageSet(KEYSTROKE_DELAY_KEY, val);
+      syncSet(KEYSTROKE_DELAY_KEY, val);
     });
   }
   if (settingsFirstCharDelay) {
     settingsFirstCharDelay.addEventListener('change', function () {
       const val = Math.max(0, Math.min(1000, Number(settingsFirstCharDelay.value) || DEFAULT_FIRST_CHAR_DELAY_MS));
-      storageSet(FIRST_CHAR_DELAY_KEY, val);
+      syncSet(FIRST_CHAR_DELAY_KEY, val);
       settingsFirstCharDelay.value = String(val);
     });
     settingsFirstCharDelay.addEventListener('input', function () {
       const val = Math.max(0, Math.min(1000, Number(settingsFirstCharDelay.value) || DEFAULT_FIRST_CHAR_DELAY_MS));
-      storageSet(FIRST_CHAR_DELAY_KEY, val);
+      syncSet(FIRST_CHAR_DELAY_KEY, val);
     });
   }
   if (settingsEnterDelay) {
     settingsEnterDelay.addEventListener('change', function () {
       const val = Math.max(0, Math.min(300, Number(settingsEnterDelay.value) || DEFAULT_ENTER_DELAY_MS));
-      storageSet(ENTER_DELAY_KEY, val);
+      syncSet(ENTER_DELAY_KEY, val);
       settingsEnterDelay.value = String(val);
     });
     settingsEnterDelay.addEventListener('input', function () {
       const val = Math.max(0, Math.min(300, Number(settingsEnterDelay.value) || DEFAULT_ENTER_DELAY_MS));
-      storageSet(ENTER_DELAY_KEY, val);
+      syncSet(ENTER_DELAY_KEY, val);
     });
   }
   if (settingsCompatMode) {
     settingsCompatMode.addEventListener('change', function () {
-      storageSet(COMPAT_MODE_KEY, settingsCompatMode.checked);
+      syncSet(COMPAT_MODE_KEY, settingsCompatMode.checked);
     });
   }
   if (settingsShortcutPaste) {
     settingsShortcutPaste.addEventListener('change', function () {
-      storageSet(SHORTCUT_PASTE_ENABLED_KEY, settingsShortcutPaste.checked);
+      syncSet(SHORTCUT_PASTE_ENABLED_KEY, settingsShortcutPaste.checked);
     });
   }
   if (settingsPopupDefaultTab) {
     settingsPopupDefaultTab.addEventListener('change', function () {
-      storageSet(POPUP_DEFAULT_TAB_KEY, settingsPopupDefaultTab.value);
+      syncSet(POPUP_DEFAULT_TAB_KEY, settingsPopupDefaultTab.value);
     });
   }
   if (settingsPanelOpen) {
     settingsPanelOpen.addEventListener('change', function () {
-      storageSet(PANEL_OPEN_KEY, settingsPanelOpen.checked);
+      syncSet(PANEL_OPEN_KEY, settingsPanelOpen.checked);
     });
   }
   if (settingsPanelPosition) {
     settingsPanelPosition.addEventListener('change', function () {
-      storageSet(PANEL_POSITION_KEY, settingsPanelPosition.value);
+      syncSet(PANEL_POSITION_KEY, settingsPanelPosition.value);
     });
   }
   if (settingsKeyboardLayout) {
     settingsKeyboardLayout.addEventListener('change', function () {
-      storageSet(KEYBOARD_LAYOUT_KEY, settingsKeyboardLayout.value);
-      storageSet(KEYBOARD_LAYOUT_USER_SET_KEY, true);
+      syncSet(KEYBOARD_LAYOUT_KEY, settingsKeyboardLayout.value);
+      syncSet(KEYBOARD_LAYOUT_USER_SET_KEY, true);
       if (settingsKeyboardLayoutNote) settingsKeyboardLayoutNote.style.display = 'none';
     });
   }
   loadSettings();
 
+  // The footer status line doubles as a transient action-feedback toast and, when idle, a
+  // description of where data currently goes -- so it must stay honest about auto-sync
+  // being on, not just show whatever the last message happened to be forever (see
+  // statusBaseline, referenced below once ghAutoSync exists).
+  let statusRevertTimer = null;
+  function statusBaseline() {
+    const autoSyncing = Boolean(ghAutoSync && !ghAutoSync.disabled && ghAutoSync.checked);
+    return autoSyncing ? 'Auto-syncing snippets to GitHub Gist' : 'Data stays on this device';
+  }
   function setStatus(msg, isError) {
-    if (statusEl) {
-      statusEl.textContent = msg || '';
-      statusEl.className = isError ? 'error' : (msg ? 'success' : '');
+    if (!statusEl) return;
+    if (statusRevertTimer) { clearTimeout(statusRevertTimer); statusRevertTimer = null; }
+    if (!msg) {
+      statusEl.textContent = statusBaseline();
+      statusEl.className = '';
+      return;
+    }
+    statusEl.textContent = msg;
+    statusEl.className = isError ? 'error' : 'success';
+    if (!isError) {
+      statusRevertTimer = setTimeout(function () {
+        statusEl.textContent = statusBaseline();
+        statusEl.className = '';
+        statusRevertTimer = null;
+      }, 5000);
     }
   }
 
@@ -279,6 +362,20 @@
     };
   }
 
+  // Merge freshly-imported snippets into existing ones by id, newest-first, capped at
+  // MAX_SNIPPETS. Shared by the JSON-file import and the GitHub Gist import below.
+  function mergeAndSaveSnippets(normalized) {
+    return getSnippets().then(function (existing) {
+      const byId = {};
+      existing.forEach(function (s) { byId[s.id] = s; });
+      normalized.forEach(function (s) { byId[s.id] = s; });
+      const merged = Object.keys(byId).map(function (id) { return byId[id]; });
+      merged.sort(function (a, b) { return (b.updatedAt || 0) - (a.updatedAt || 0); });
+      const capped = merged.slice(0, MAX_SNIPPETS);
+      return setSnippets(capped).then(function () { return capped; });
+    });
+  }
+
   var dropZone = document.getElementById('dropZone');
   if (dropZone && fileInput) {
     dropZone.addEventListener('drop', function (e) {
@@ -321,18 +418,8 @@
           return;
         }
 
-        getSnippets().then(function (existing) {
-          const byId = {};
-          existing.forEach(function (s) { byId[s.id] = s; });
-          normalized.forEach(function (s) { byId[s.id] = s; });
-          const merged = Object.keys(byId).map(function (id) { return byId[id]; });
-          merged.sort(function (a, b) { return (b.updatedAt || 0) - (a.updatedAt || 0); });
-          (function () {
-            const capped = merged.slice(0, MAX_SNIPPETS);
-            setSnippets(capped).then(function () {
-              setStatus('Imported ' + normalized.length + ' snippet(s). Total: ' + capped.length + '.');
-            });
-          })();
+        mergeAndSaveSnippets(normalized).then(function (capped) {
+          setStatus('Imported ' + normalized.length + ' snippet(s). Total: ' + capped.length + '.');
         });
       };
       reader.onerror = function () {
@@ -340,6 +427,241 @@
       };
       reader.readAsText(file, 'utf-8');
     });
+  }
+
+  // ── GitHub Gist backup ──────────────────────────────────────────
+  // Token, linked Gist ID, and the auto-sync preference are all local-only
+  // (chrome.storage.local), never synced -- a GitHub token is a real secret and
+  // sync would hand it to the browser vendor's account infrastructure along with
+  // everything else that gets synced. Auto-sync itself is pushed by background.js,
+  // which reacts to snippet changes even when this settings page isn't open.
+  const GITHUB_TOKEN_KEY = 'pmx_github_token';
+  const GITHUB_GIST_ID_KEY = 'pmx_github_gist_id';
+  const GITHUB_AUTO_SYNC_KEY = 'pmx_github_auto_sync';
+  const GITHUB_LAST_SYNC_KEY = 'pmx_github_last_sync';
+  const GIST_FILENAME = 'pve-snippets.json';
+  const GITHUB_API = 'https://api.github.com';
+
+  const ghTokenInput = document.getElementById('gh-token');
+  const ghGistIdInput = document.getElementById('gh-gist-id');
+  const ghExportBtn = document.getElementById('gh-export-btn');
+  const ghImportBtn = document.getElementById('gh-import-btn');
+  const ghForgetBtn = document.getElementById('gh-forget-btn');
+  const ghAutoSync = document.getElementById('gh-auto-sync');
+  const ghAutoSyncNote = document.getElementById('gh-auto-sync-note');
+  const ghSyncStatus = document.getElementById('gh-sync-status');
+  const ghImportPrompt = document.getElementById('gh-import-prompt');
+  const ghImportPromptYes = document.getElementById('gh-import-prompt-yes');
+  const ghImportPromptNo = document.getElementById('gh-import-prompt-no');
+  const ghNoTokenWarning = document.getElementById('gh-no-token-warning');
+
+  // Export/auto-sync write to the Gist and always need a token; import only reads, and
+  // GitHub's API allows unauthenticated reads of public gists -- so a token is optional
+  // for import (e.g. pulling a public template someone shared), but Export stays disabled
+  // without one since there's no way to write anonymously.
+  function updateTokenDependentUI() {
+    const hasToken = Boolean(ghTokenInput && (ghTokenInput.value || '').trim());
+    if (ghExportBtn) ghExportBtn.disabled = !hasToken;
+    if (ghNoTokenWarning) ghNoTokenWarning.style.display = hasToken ? 'none' : 'block';
+  }
+
+  if (ghTokenInput) {
+    storageGet(GITHUB_TOKEN_KEY).then(function (token) {
+      if (token) ghTokenInput.value = token;
+      updateTokenDependentUI();
+    });
+    ghTokenInput.addEventListener('input', updateTokenDependentUI);
+  } else {
+    updateTokenDependentUI();
+  }
+  if (ghGistIdInput) {
+    storageGet(GITHUB_GIST_ID_KEY).then(function (id) { if (id) ghGistIdInput.value = id; });
+  }
+
+  function githubRequest(token, path, method, body) {
+    const headers = { 'Accept': 'application/vnd.github+json', 'Content-Type': 'application/json' };
+    if (token) headers['Authorization'] = 'Bearer ' + token;
+    return fetch(GITHUB_API + path, {
+      method: method || 'GET',
+      headers: headers,
+      body: body ? JSON.stringify(body) : undefined
+    }).then(function (res) {
+      return res.json().catch(function () { return {}; }).then(function (data) {
+        if (!res.ok) throw new Error((data && data.message) || ('GitHub API error (' + res.status + ')'));
+        return data;
+      });
+    });
+  }
+
+  function doGistExport(token, explicitGistId) {
+    return Promise.all([getSnippets(), explicitGistId ? Promise.resolve(explicitGistId) : storageGet(GITHUB_GIST_ID_KEY)])
+      .then(function (vals) {
+        const snippets = vals[0];
+        const gistId = vals[1];
+        const body = {
+          description: 'PVE Snippets backup',
+          public: false,
+          files: { [GIST_FILENAME]: { content: JSON.stringify(snippets, null, 2) } }
+        };
+        const req = gistId
+          ? githubRequest(token, '/gists/' + gistId, 'PATCH', body)
+          : githubRequest(token, '/gists', 'POST', body);
+        return req.then(function (gist) {
+          storageSet(GITHUB_TOKEN_KEY, token);
+          storageSet(GITHUB_GIST_ID_KEY, gist.id);
+          storageSet(GITHUB_LAST_SYNC_KEY, { time: Date.now(), ok: true });
+          if (ghGistIdInput) ghGistIdInput.value = gist.id;
+          return snippets.length;
+        });
+      });
+  }
+
+  function doGistImport(token, explicitGistId) {
+    return (explicitGistId ? Promise.resolve(explicitGistId) : storageGet(GITHUB_GIST_ID_KEY)).then(function (gistId) {
+      if (!gistId) throw new Error('Enter a Gist ID to import from, or export once first to link one.');
+      return githubRequest(token, '/gists/' + gistId, 'GET').then(function (gist) {
+        const file = gist.files && gist.files[GIST_FILENAME];
+        if (!file || !file.content) throw new Error('Gist has no ' + GIST_FILENAME + ' file.');
+        let list;
+        try { list = JSON.parse(file.content); } catch (_) { throw new Error('Gist content is not valid JSON.'); }
+        if (!Array.isArray(list)) throw new Error('Gist content is not a snippet list.');
+        const normalized = list.map(normalizeSnippet).filter(Boolean);
+        return mergeAndSaveSnippets(normalized).then(function (capped) {
+          // Only "link" this Gist as the device's export/auto-sync target when a token was
+          // used -- an anonymous pull from someone else's public template (e.g. a shared
+          // starter set) shouldn't silently become the destination a later Export writes to.
+          if (token) {
+            storageSet(GITHUB_TOKEN_KEY, token);
+            storageSet(GITHUB_GIST_ID_KEY, gistId);
+            if (ghGistIdInput) ghGistIdInput.value = gistId;
+          }
+          return capped.length;
+        });
+      });
+    });
+  }
+
+  function formatSyncStatus(info) {
+    if (!info || !info.time) return 'Last synced: never';
+    const mins = Math.floor((Date.now() - info.time) / 60000);
+    const when = mins < 1 ? 'just now' : mins < 60 ? mins + 'm ago' : Math.floor(mins / 60) + 'h ago';
+    return info.ok === false ? ('Last sync failed (' + when + '): ' + (info.error || 'unknown error')) : ('Last synced: ' + when);
+  }
+
+  function refreshSyncStatus() {
+    if (!ghSyncStatus) return;
+    storageGet(GITHUB_LAST_SYNC_KEY).then(function (info) {
+      ghSyncStatus.textContent = formatSyncStatus(info);
+    });
+  }
+
+  function updateAutoSyncAvailability() {
+    if (!ghAutoSync) return Promise.resolve();
+    return Promise.all([storageGet(GITHUB_TOKEN_KEY), storageGet(GITHUB_GIST_ID_KEY), storageGet(GITHUB_AUTO_SYNC_KEY)])
+      .then(function (vals) {
+        const linked = Boolean(vals[0] && vals[1]);
+        ghAutoSync.disabled = !linked;
+        ghAutoSync.checked = linked && Boolean(vals[2]);
+        if (ghAutoSyncNote) ghAutoSyncNote.style.display = linked ? 'none' : 'block';
+        refreshSyncStatus();
+      });
+  }
+  updateAutoSyncAvailability().then(function () { setStatus(); });
+
+  if (ghExportBtn) {
+    ghExportBtn.addEventListener('click', function () {
+      const token = (ghTokenInput.value || '').trim();
+      if (!token) { setStatus('Enter a GitHub token first.', true); return; }
+      const explicitGistId = (ghGistIdInput.value || '').trim();
+      setStatus('Exporting to Gist…');
+      doGistExport(token, explicitGistId)
+        .then(function (count) {
+          setStatus('Exported ' + count + ' snippet(s) to Gist.');
+          updateAutoSyncAvailability();
+        })
+        .catch(function (err) { setStatus('Export failed: ' + err.message, true); });
+    });
+  }
+
+  if (ghImportBtn) {
+    ghImportBtn.addEventListener('click', function () {
+      const token = (ghTokenInput.value || '').trim();
+      const explicitGistId = (ghGistIdInput.value || '').trim();
+      setStatus('Importing from Gist…');
+      doGistImport(token, explicitGistId)
+        .then(function (total) {
+          setStatus('Imported from Gist. Total: ' + total + '.');
+          updateAutoSyncAvailability();
+          if (ghImportPrompt) ghImportPrompt.style.display = 'none';
+        })
+        .catch(function (err) { setStatus('Import failed: ' + err.message, true); });
+    });
+  }
+
+  if (ghForgetBtn) {
+    ghForgetBtn.addEventListener('click', function () {
+      try {
+        const api = typeof chrome !== 'undefined' && chrome.storage && chrome.storage.local
+          ? chrome.storage.local
+          : typeof browser !== 'undefined' && browser.storage && browser.storage.local
+            ? browser.storage.local
+            : null;
+        if (api) api.remove([GITHUB_TOKEN_KEY, GITHUB_GIST_ID_KEY, GITHUB_AUTO_SYNC_KEY, GITHUB_LAST_SYNC_KEY]);
+      } catch (_) {}
+      if (ghTokenInput) ghTokenInput.value = '';
+      if (ghGistIdInput) ghGistIdInput.value = '';
+      setStatus('GitHub token forgotten.');
+      updateAutoSyncAvailability();
+      updateTokenDependentUI();
+    });
+  }
+
+  if (ghAutoSync) {
+    ghAutoSync.addEventListener('change', function () {
+      const checked = ghAutoSync.checked;
+      storageSet(GITHUB_AUTO_SYNC_KEY, checked);
+      if (!checked) { setStatus('Auto-sync disabled.'); return; }
+      // Sync immediately on enable so turning the toggle on has visible effect right away,
+      // rather than waiting for the next snippet edit to trigger background.js's auto-sync.
+      Promise.all([storageGet(GITHUB_TOKEN_KEY), storageGet(GITHUB_GIST_ID_KEY)]).then(function (vals) {
+        if (!vals[0] || !vals[1]) return;
+        setStatus('Syncing…');
+        doGistExport(vals[0], vals[1])
+          .then(function () { setStatus('Auto-sync enabled.'); refreshSyncStatus(); })
+          .catch(function (err) { setStatus('Auto-sync enable failed: ' + err.message, true); });
+      });
+    });
+  }
+
+  // Live-update the "last synced" status if background.js auto-syncs while this page is open.
+  if (typeof chrome !== 'undefined' && chrome.storage && chrome.storage.onChanged) {
+    chrome.storage.onChanged.addListener(function (changes, area) {
+      if (area === 'local' && changes[GITHUB_LAST_SYNC_KEY]) refreshSyncStatus();
+    });
+  }
+
+  // Offer to import when starting from zero snippets but a Gist is already linked on this
+  // device (e.g. a fresh profile/reinstall where the token+gist ID survived but snippets didn't).
+  if (ghImportPrompt) {
+    Promise.all([getSnippets(), storageGet(GITHUB_TOKEN_KEY), storageGet(GITHUB_GIST_ID_KEY)]).then(function (vals) {
+      if (vals[0].length === 0 && vals[1] && vals[2]) ghImportPrompt.style.display = 'flex';
+    });
+    if (ghImportPromptYes) {
+      ghImportPromptYes.addEventListener('click', function () {
+        const token = (ghTokenInput.value || '').trim();
+        setStatus('Importing from Gist…');
+        doGistImport(token, (ghGistIdInput.value || '').trim())
+          .then(function (total) {
+            setStatus('Imported from Gist. Total: ' + total + '.');
+            ghImportPrompt.style.display = 'none';
+            updateAutoSyncAvailability();
+          })
+          .catch(function (err) { setStatus('Import failed: ' + err.message, true); });
+      });
+    }
+    if (ghImportPromptNo) {
+      ghImportPromptNo.addEventListener('click', function () { ghImportPrompt.style.display = 'none'; });
+    }
   }
 
   // Sidebar nav: switch settings panel

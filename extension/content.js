@@ -70,16 +70,17 @@
   // resolveKey are defined in keyboard-layouts.js, loaded as a sibling content script
   // (see manifest.json) so they're available here as globals.
   function getKeyboardLayout() {
-    return storageGet(KEYBOARD_LAYOUT_KEY).then(function (val) {
+    return syncGet(KEYBOARD_LAYOUT_KEY).then(function (val) {
       return KEYBOARD_LAYOUTS[val] ? val : DEFAULT_KEYBOARD_LAYOUT;
     });
   }
 
-  // Send a single character to the noVNC canvas using keyboard events
-  function sendChar(canvas, char, layoutTable) {
-    const keyCode = char.charCodeAt(0);
-    const { code, shift, altGr } = resolveKey(layoutTable, char);
-
+  // Send one physical keystroke {code, shift, altGr} to the canvas. eventKey/eventKeyCode
+  // are what's reported as the event's `key`/`keyCode` -- for a normal character these are
+  // the character itself; for the dead-key step of a composed character (see sendChar)
+  // there's no printable result yet, so callers pass 'Dead'/0 instead.
+  function sendKeystroke(canvas, keystroke, eventKey, eventKeyCode) {
+    const { code, shift, altGr } = keystroke;
     const baseOpts = { bubbles: true, cancelable: true };
 
     if (shift) {
@@ -94,7 +95,8 @@
     }
 
     const keyEventOpts = {
-      ...baseOpts, key: char, code, keyCode, which: keyCode, charCode: keyCode, shiftKey: shift, altKey: altGr
+      ...baseOpts, key: eventKey, code, keyCode: eventKeyCode, which: eventKeyCode,
+      charCode: eventKeyCode, shiftKey: shift, altKey: altGr
     };
 
     canvas.dispatchEvent(new KeyboardEvent('keydown', keyEventOpts));
@@ -113,6 +115,26 @@
     }
   }
 
+  // Send a single character to the noVNC canvas. Most characters are one physical keystroke,
+  // but some (e.g. Spanish "á") are composed from a dead key followed by a base letter --
+  // resolveKey() returns either shape (see its comment in keyboard-layouts.js). For a
+  // dead-key sequence we send both keystrokes in order and let the guest OS's own dead-key
+  // composition combine them, exactly like a real keyboard would.
+  function sendChar(canvas, char, layoutTable) {
+    const resolved = resolveKey(layoutTable, char);
+    if (!resolved) {
+      console.warn('[PVE Snippets] Skipping character with no key mapping for this keyboard layout:', JSON.stringify(char));
+      return false;
+    }
+    const keyCode = char.charCodeAt(0);
+    const sequence = Array.isArray(resolved) ? resolved : [resolved];
+    sequence.forEach(function (keystroke, i) {
+      const isFinal = i === sequence.length - 1;
+      sendKeystroke(canvas, keystroke, isFinal ? char : 'Dead', isFinal ? keyCode : 0);
+    });
+    return true;
+  }
+
   // Release modifier and 'v' on the canvas so the VM is not left with Ctrl/Cmd+V "held"
   // (otherwise the first pasted character can be dropped or interpreted as a shortcut).
   function releasePasteKeys(canvas) {
@@ -124,7 +146,7 @@
 
   // Send text character by character. Release paste keys and delay first char so noVNC is ready.
   function getFirstCharDelayMs() {
-    return storageGet(FIRST_CHAR_DELAY_KEY).then(function (val) {
+    return syncGet(FIRST_CHAR_DELAY_KEY).then(function (val) {
       const n = Number(val);
       if (!Number.isFinite(n) || n < 0) return DEFAULT_FIRST_CHAR_DELAY_MS;
       return Math.min(n, 1000);
@@ -132,7 +154,7 @@
   }
 
   function getKeystrokeDelayMs() {
-    return storageGet(KEYSTROKE_DELAY_KEY).then(function (val) {
+    return syncGet(KEYSTROKE_DELAY_KEY).then(function (val) {
       const n = Number(val);
       if (!Number.isFinite(n) || n < 0) return DEFAULT_KEYSTROKE_DELAY_MS;
       return Math.min(n, 500);
@@ -140,7 +162,7 @@
   }
 
   function getEnterDelayMs() {
-    return storageGet(ENTER_DELAY_KEY).then(function (val) {
+    return syncGet(ENTER_DELAY_KEY).then(function (val) {
       const n = Number(val);
       if (!Number.isFinite(n) || n < 0) return DEFAULT_ENTER_DELAY_MS;
       return Math.min(n, 300);
@@ -148,7 +170,7 @@
   }
 
   function getCompatMode() {
-    return storageGet(COMPAT_MODE_KEY).then(function (val) { return Boolean(val); });
+    return syncGet(COMPAT_MODE_KEY).then(function (val) { return Boolean(val); });
   }
 
   function sendEnter(canvas) {
@@ -192,6 +214,7 @@
     canvas.focus();
     const normalized = text.replace(/\r\n/g, '\n');
     let i = 0;
+    let skipped = 0;
 
     function sendNext() {
       if (cancelledRef && cancelledRef.cancelled) {
@@ -199,12 +222,14 @@
         return;
       }
       if (i >= normalized.length) {
-        storageGet(AUTO_ENTER_KEY).then(function (autoEnter) {
+        syncGet(AUTO_ENTER_KEY).then(function (autoEnter) {
           if (autoEnter) {
             setTimeout(function () { sendEnter(canvas); }, delayMs);
           }
         });
-        showToast('\u2713 Pasted ' + normalized.length + ' characters');
+        showToast(skipped > 0
+          ? '\u26a0 Pasted ' + (normalized.length - skipped) + ' characters, skipped ' + skipped + ' unsupported for this keyboard layout'
+          : '\u2713 Pasted ' + normalized.length + ' characters');
         if (onComplete) onComplete(false);
         return;
       }
@@ -214,7 +239,7 @@
         i++;
         setTimeout(sendNext, delayMs + afterEnterMs);
       } else {
-        sendChar(canvas, char, layoutTable);
+        if (!sendChar(canvas, char, layoutTable)) skipped++;
         i++;
         let nextDelay = delayMs;
         if (compatLongPaste && i > 0 && i % COMPAT_CHUNK_CHARS === 0) {
@@ -391,6 +416,24 @@
     } catch (_) {}
     try { localStorage.setItem(key, JSON.stringify(value)); } catch (_) {}
     return Promise.resolve();
+  }
+
+  // Settings (not snippets) sync via chrome.storage.sync, falling back to local storage
+  // when sync is unavailable (e.g. Firefox without Sync signed in) or has no value yet
+  // (pre-existing local-only value from before sync support -- migrated up on read).
+  function syncGet(key) {
+    try {
+      if (typeof chrome !== 'undefined' && chrome.storage && chrome.storage.sync) {
+        return chrome.storage.sync.get([key]).then((res) => {
+          if (res[key] !== undefined) return res[key];
+          return storageGet(key).then((localVal) => {
+            if (localVal !== undefined) chrome.storage.sync.set({ [key]: localVal }).catch(() => {});
+            return localVal;
+          });
+        }).catch(() => storageGet(key));
+      }
+    } catch (_) {}
+    return storageGet(key);
   }
 
   async function getSnippets() {
@@ -1273,7 +1316,7 @@
     document.body.appendChild(wrap);
 
     function applyPanelPosition(w) {
-      storageGet(PANEL_POSITION_KEY).then(function (pos) {
+      syncGet(PANEL_POSITION_KEY).then(function (pos) {
         const p = (pos === 'bottom-left' || pos === 'top-right' || pos === 'top-left') ? pos : 'bottom-right';
         const px = '16px';
         w.style.top = w.style.bottom = w.style.left = w.style.right = 'auto';
@@ -1286,7 +1329,7 @@
     }
     applyPanelPosition(wrap);
 
-    storageGet(PANEL_OPEN_KEY).then(function (open) {
+    syncGet(PANEL_OPEN_KEY).then(function (open) {
       if (open) openPanel();
     });
 
@@ -1315,7 +1358,7 @@
       if ((e.ctrlKey || e.metaKey) && e.key === 'v') {
         e.preventDefault();
         e.stopPropagation();
-        storageGet(SHORTCUT_PASTE_ENABLED_KEY).then(function (enabled) {
+        syncGet(SHORTCUT_PASTE_ENABLED_KEY).then(function (enabled) {
           if (enabled !== false) pasteClipboard(canvas);
         });
       }

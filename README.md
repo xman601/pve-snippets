@@ -11,10 +11,11 @@ A Chrome, Edge, and Firefox browser extension that adds clipboard paste support 
 - **Popup Paste** — open the extension popup, type or paste text, and click **Send** to paste into the active tab (noVNC canvas or focused text field)
 - **Auto-hit Enter after paste** — optional toggle in Settings to send Enter after each paste
 - **Timing & compatibility controls** — adjust per‑character delay, first‑character delay (up to 1000 ms), extra delay after newlines, and an optional compatibility mode for very long pastes
-- **Keyboard layout support** — choose US, UK, German (QWERTZ), or French (AZERTY) in Settings so symbols and accented characters type correctly on non-US VMs; the extension makes a best-effort guess at install time (from your browser) but you should confirm it matches your VM's guest OS layout
+- **Keyboard layout support** — choose from US, UK, German (QWERTZ), French (AZERTY), Spanish, Italian, Portuguese, Dutch, Canadian English, Australian/NZ, or Irish in Settings so symbols and accented characters type correctly on non-US VMs; the extension makes a best-effort guess at install time (from your browser) but you should confirm it matches your VM's guest OS layout. Spanish/Portuguese/Dutch also support dead-key composed accents (e.g. Spanish á = dead-acute + a), the same way a real keyboard does. Spanish, Italian, Portuguese, and Dutch are newer additions marked "(draft)" in the dropdown — verify against a real VM before relying on them for anything sensitive (see `dev/README.md`)
 - **Update notice** — after the extension auto-updates, a small badge appears on the toolbar icon and a one-time "Updated to vX.Y.Z" note shows in the popup or the noVNC panel
+- **Settings sync** — preferences (timing, keyboard layout, panel position, etc.) sync across devices via the browser's built-in account sync, when the user is signed in; falls back to local-only storage otherwise. Snippets are never synced this way — see Privacy.
 - **Saved Snippets** — create, edit, delete, and reorder snippets; run them from either the popup or the noVNC panel (up to 200 snippets)
-- **Backup & restore** — export all snippets to JSON and import them on another browser/profile
+- **Backup & restore** — export all snippets to JSON and import them on another browser/profile, or optionally back up to a GitHub Gist (Settings → Backup) using your own personal access token, with an optional auto-sync toggle to push changes automatically
 - **Visual feedback** — toasts and, for long pastes, a **timer with countdown, progress bar, and cancel button** so you can see and control long-running pastes
 
 ## Installation (Developer Mode)
@@ -48,7 +49,11 @@ For Firefox (development): open `about:debugging`, click **This Firefox**, click
 
 ## Privacy
 
-All data stays on your device. Clipboard content is used only when you paste and is not stored or sent anywhere. Snippets are stored locally in the browser. The extension does not send data to any server. See `docs/PRIVACY_POLICY_TEMPLATE.md` for the full policy.
+Clipboard content is used only when you paste and is not stored or sent anywhere. Snippets are always stored locally in the browser and are never synced. The extension does not send data to any server it controls. See [`docs/PRIVACY_POLICY.md`](docs/PRIVACY_POLICY.md) for the full policy.
+
+Small preferences (timing, keyboard layout, panel position, etc. — never snippets or clipboard content) sync via `chrome.storage.sync`/`browser.storage.sync`, the browser's own built-in account sync, when the browser is signed in. That means the browser vendor (Google/Mozilla) carries these small settings values through its sync infrastructure the same way it would any other extension's synced settings; if you'd rather nothing leave the device, disable sync for extensions in your browser, or simply don't sign in — the extension falls back to local-only storage automatically.
+
+GitHub Gist backup (Settings → Backup) is entirely opt-in: nothing is sent to GitHub unless you paste in a personal access token. By default you trigger Export/Import yourself; an optional **Auto-sync to Gist** toggle pushes changes automatically a couple seconds after each edit once a Gist is linked, running from the background service worker so it works even with no extension page open — it never pulls changes down on its own, only up. The token is stored locally only (never synced), and gists created this way are "secret" (unlisted) but not private — anyone with the link can view them.
 
 Note: local storage isn't indestructible — a browser "Clear browsing data" pass that includes **cookies and other site data** (not just cache) can wipe snippets and settings along with it. Export your snippets first (see above) before doing a deep browser cleanup.
 

@@ -74,6 +74,32 @@
     });
   }
 
+  // Settings (not snippets) sync via chrome.storage.sync, falling back to local storage
+  // when sync is unavailable or has no value yet (pre-existing local-only value from
+  // before sync support -- migrated up on read).
+  function syncGet(key) {
+    return new Promise(function(resolve) {
+      try {
+        const api = typeof chrome !== 'undefined' && chrome.storage && chrome.storage.sync
+          ? chrome.storage.sync
+          : typeof browser !== 'undefined' && browser.storage && browser.storage.sync
+            ? browser.storage.sync
+            : null;
+        if (api) {
+          api.get([key], function(res) {
+            if (res && res[key] !== undefined) { resolve(res[key]); return; }
+            storageGet(key).then(function(localVal) {
+              if (localVal !== undefined) api.set({ [key]: localVal });
+              resolve(localVal);
+            });
+          });
+          return;
+        }
+      } catch (_) { }
+      storageGet(key).then(resolve);
+    });
+  }
+
   function setPasteDraft(text) {
     try {
       if (typeof chrome !== 'undefined' && chrome.storage && chrome.storage.local) {
@@ -419,7 +445,7 @@
   if (tabPaste) tabPaste.addEventListener('click', function() { setTab('paste'); });
   if (tabSnippets) tabSnippets.addEventListener('click', function() { setTab('snippets'); });
 
-  storageGet(POPUP_DEFAULT_TAB_KEY).then(function(tab) {
+  syncGet(POPUP_DEFAULT_TAB_KEY).then(function(tab) {
     setTab(tab === 'snippets' ? 'snippets' : 'paste');
   });
 
