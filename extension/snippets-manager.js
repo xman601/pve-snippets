@@ -2,13 +2,21 @@
   'use strict';
 
   const SNIPPETS_KEY = 'pmx_snippets_v1';
+  const GITHUB_TOKEN_KEY = 'pmx_github_token';
+  const GITHUB_GIST_ID_KEY = 'pmx_github_gist_id';
 
   const dot      = document.getElementById('statusDot');
   const statusEl = document.getElementById('status');
+  const tableEl  = document.getElementById('snippetTable');
   const listEl   = document.getElementById('snippetList');
   const countEl  = document.getElementById('snippetCount');
   const exportBtn = document.getElementById('exportBtn');
   const zone     = document.getElementById('dropZone');
+  const selectAllEl   = document.getElementById('snippetSelectAll');
+  const bulkBarEl      = document.getElementById('snippetBulkBar');
+  const bulkCountEl    = document.getElementById('snippetBulkCount');
+  const bulkSyncBtn    = document.getElementById('snippetBulkSyncBtn');
+  const bulkDeleteBtn  = document.getElementById('snippetBulkDeleteBtn');
 
   // ── Storage helpers ────────────────────────────────────────────
   function storageApi() {
@@ -32,6 +40,27 @@
     var obj = {};
     obj[SNIPPETS_KEY] = snippets;
     api.set(obj, cb || function () {});
+  }
+
+  // Gists are unlisted, not private -- anyone with the link can view them, so which
+  // snippets get uploaded is opt-in per snippet (see the "Sync" column below), not implied
+  // by having auto-sync/export configured at all. The column itself is shown once a token
+  // is saved (Settings -> Backup), same condition that enables the Export button there --
+  // NOT full linkage (token + an existing Gist ID), since a Gist doesn't exist yet the
+  // first time through: the first successful Export is what creates it, and it needs at
+  // least one opted-in snippet to have anything to create it with. Requiring full linkage
+  // here would make that impossible (no gist to import from, no way to opt in before
+  // exporting, no way to export before opting in).
+  var gistLinked = false;
+  function refreshGistLinked(cb) {
+    var api = storageApi();
+    if (!api) { gistLinked = false; if (tableEl) tableEl.classList.remove('gist-linked'); if (cb) cb(); return; }
+    api.get([GITHUB_TOKEN_KEY], function (res) {
+      gistLinked = Boolean(res[GITHUB_TOKEN_KEY]);
+      if (tableEl) tableEl.classList.toggle('gist-linked', gistLinked);
+      if (bulkSyncBtn) bulkSyncBtn.style.display = gistLinked ? '' : 'none';
+      if (cb) cb();
+    });
   }
 
   // ── Stat helpers ───────────────────────────────────────────────
@@ -66,10 +95,37 @@
     }
   }
 
+  // ── Bulk selection ─────────────────────────────────────────────
+  var selectedIds = new Set();
+
+  function updateBulkBar(snippets) {
+    // Drop selections for snippets that no longer exist (deleted elsewhere, e.g. the popup).
+    var liveIds = new Set(snippets.map(function (s) { return s.id; }));
+    selectedIds.forEach(function (id) { if (!liveIds.has(id)) selectedIds.delete(id); });
+
+    if (bulkBarEl) bulkBarEl.style.display = selectedIds.size > 0 ? 'flex' : 'none';
+    if (bulkCountEl) bulkCountEl.textContent = selectedIds.size + ' selected';
+    if (selectAllEl) {
+      selectAllEl.checked = snippets.length > 0 && selectedIds.size === snippets.length;
+      selectAllEl.indeterminate = selectedIds.size > 0 && selectedIds.size < snippets.length;
+    }
+    // Toggle between the two directions based on the selection's current state, the same
+    // way a tri-state "select all" checkbox works: if every selected snippet is already
+    // synced, the action to offer is turning sync off; otherwise (none or only some are),
+    // it's turning sync on for the whole selection.
+    if (bulkSyncBtn && selectedIds.size > 0) {
+      var selected = snippets.filter(function (s) { return selectedIds.has(s.id); });
+      var allSynced = selected.every(function (s) { return s.syncToGist === true; });
+      bulkSyncBtn.textContent = allSynced ? 'Unsync selected' : 'Sync selected';
+      bulkSyncBtn.dataset.nextValue = allSynced ? 'false' : 'true';
+    }
+  }
+
   // ── Render list ────────────────────────────────────────────────
   function renderList(snippets) {
     countEl.textContent = snippets.length;
     updateStats(snippets);
+    updateBulkBar(snippets);
     listEl.innerHTML = '';
     if (!snippets.length) {
       var empty = document.createElement('div');
@@ -92,8 +148,16 @@
     var view = document.createElement('div');
     view.className = 'snippet-view';
 
+    var checkCell = document.createElement('span');
+    checkCell.className = 'col-check';
+    var selectCheckbox = document.createElement('input');
+    selectCheckbox.type = 'checkbox';
+    selectCheckbox.checked = selectedIds.has(snippet.id);
+    selectCheckbox.title = 'Select';
+    checkCell.appendChild(selectCheckbox);
+
     var info = document.createElement('div');
-    info.className = 'snippet-info';
+    info.className = 'col-name';
 
     var nameEl = document.createElement('div');
     nameEl.className = 'snippet-name';
@@ -106,23 +170,29 @@
     info.appendChild(nameEl);
     info.appendChild(preview);
 
-    var actions = document.createElement('div');
-    actions.className = 'snippet-actions';
+    var syncCell = document.createElement('span');
+    syncCell.className = 'col-sync';
+    var syncCheckbox = document.createElement('input');
+    syncCheckbox.type = 'checkbox';
+    syncCheckbox.checked = Boolean(snippet.syncToGist);
+    syncCheckbox.title = 'Sync to Gist -- off by default, gists are unlisted, not private';
+    syncCell.appendChild(syncCheckbox);
 
     var editBtn = document.createElement('button');
-    editBtn.className = 'row-btn';
+    editBtn.className = 'row-btn col-edit';
     editBtn.title = 'Edit';
     editBtn.innerHTML = '<svg viewBox="0 0 24 24" stroke-width="1.8" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" d="M16.862 4.487l1.687-1.688a1.875 1.875 0 112.652 2.652L10.582 16.07a4.5 4.5 0 01-1.897 1.13L6 18l.8-2.685a4.5 4.5 0 011.13-1.897l8.932-8.931zm0 0L19.5 7.125"/></svg>';
 
     var delBtn = document.createElement('button');
-    delBtn.className = 'row-btn del';
+    delBtn.className = 'row-btn del col-delete';
     delBtn.title = 'Delete';
     delBtn.innerHTML = '<svg viewBox="0 0 24 24" stroke-width="1.8" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" d="M14.74 9l-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 01-2.244 2.077H8.084a2.25 2.25 0 01-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 00-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 013.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 00-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 00-7.5 0"/></svg>';
 
-    actions.appendChild(editBtn);
-    actions.appendChild(delBtn);
+    view.appendChild(checkCell);
     view.appendChild(info);
-    view.appendChild(actions);
+    view.appendChild(syncCell);
+    view.appendChild(editBtn);
+    view.appendChild(delBtn);
 
     // Edit form
     var editForm = document.createElement('div');
@@ -168,6 +238,24 @@
     row.appendChild(editForm);
 
     // Events
+    selectCheckbox.addEventListener('change', function () {
+      if (selectCheckbox.checked) selectedIds.add(snippet.id);
+      else selectedIds.delete(snippet.id);
+      loadSnippets(updateBulkBar);
+    });
+
+    // Sync-to-Gist is a direct, immediate toggle -- no separate Save step, matching every
+    // other instant-persist checkbox in this extension (Auto-sync, etc).
+    syncCheckbox.addEventListener('change', function () {
+      var newSync = syncCheckbox.checked;
+      loadSnippets(function (current) {
+        var updated = current.map(function (s) {
+          return s.id === snippet.id ? { ...s, syncToGist: newSync } : s;
+        });
+        saveSnippets(updated, function () { snippet.syncToGist = newSync; });
+      });
+    });
+
     editBtn.addEventListener('click', function () {
       var opening = !row.classList.contains('editing');
       row.classList.toggle('editing');
@@ -187,7 +275,7 @@
       loadSnippets(function (current) {
         var updated = current.map(function (s) {
           if (s.id !== snippet.id) return s;
-          return { id: s.id, name: newName || 'Snippet', text: newText, updatedAt: Date.now() };
+          return { ...s, name: newName || 'Snippet', text: newText, updatedAt: Date.now() };
         });
         saveSnippets(updated, function () {
           snippet.name = newName || 'Snippet';
@@ -202,11 +290,52 @@
     delBtn.addEventListener('click', function () {
       loadSnippets(function (current) {
         var remaining = current.filter(function (s) { return s.id !== snippet.id; });
+        selectedIds.delete(snippet.id);
         saveSnippets(remaining, function () { renderList(remaining); });
       });
     });
 
     return row;
+  }
+
+  // ── Select all / bulk sync / bulk delete ──────────────────────
+  if (selectAllEl) {
+    selectAllEl.addEventListener('change', function () {
+      var checkNow = selectAllEl.checked;
+      loadSnippets(function (current) {
+        selectedIds.clear();
+        if (checkNow) current.forEach(function (s) { selectedIds.add(s.id); });
+        renderList(current);
+      });
+    });
+  }
+
+  if (bulkSyncBtn) {
+    bulkSyncBtn.addEventListener('click', function () {
+      if (selectedIds.size === 0) return;
+      var nextValue = bulkSyncBtn.dataset.nextValue !== 'false';
+      loadSnippets(function (current) {
+        var updated = current.map(function (s) {
+          return selectedIds.has(s.id) ? { ...s, syncToGist: nextValue } : s;
+        });
+        // Selection stays as-is so the now-(un)checked "Sync" boxes are visible right where
+        // they were just picked from, instead of the bar vanishing on success.
+        saveSnippets(updated, function () { renderList(updated); });
+      });
+    });
+  }
+
+  if (bulkDeleteBtn) {
+    bulkDeleteBtn.addEventListener('click', function () {
+      if (selectedIds.size === 0) return;
+      var count = selectedIds.size;
+      if (!window.confirm('Delete ' + count + ' selected snippet(s)? This can\'t be undone.')) return;
+      loadSnippets(function (current) {
+        var remaining = current.filter(function (s) { return !selectedIds.has(s.id); });
+        selectedIds.clear();
+        saveSnippets(remaining, function () { renderList(remaining); });
+      });
+    });
   }
 
   // ── Export ─────────────────────────────────────────────────────
@@ -245,10 +374,15 @@
         var newValue = changes[SNIPPETS_KEY].newValue;
         renderList(Array.isArray(newValue) ? newValue : []);
       }
+      // A Gist just got linked/unlinked (e.g. via the Backup panel while this page is
+      // open) -- re-render so the "Sync" column appears/disappears accordingly.
+      if (area === 'local' && (changes[GITHUB_TOKEN_KEY] || changes[GITHUB_GIST_ID_KEY])) {
+        refreshGistLinked(function () { loadSnippets(renderList); });
+      }
     });
   }
 
   // ── Initial load ───────────────────────────────────────────────
-  loadSnippets(renderList);
+  refreshGistLinked(function () { loadSnippets(renderList); });
 
 })();
