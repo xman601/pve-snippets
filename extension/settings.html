@@ -161,6 +161,9 @@
       }
       .snippets-panel-inner .stats-row { flex-shrink: 0; }
       .snippets-panel-inner .list-header { flex-shrink: 0; }
+      .snippets-panel-inner .snippet-bulk-bar { flex-shrink: 0; }
+      .snippets-panel-inner .snippet-table { flex: 1; min-height: 0; display: flex; flex-direction: column; }
+      .snippet-table-head { flex-shrink: 0; }
       .snippet-list {
         flex: 1;
         min-height: 0;
@@ -530,8 +533,44 @@
         color: var(--text-muted);
       }
 
-      /* Snippet list */
-      .snippet-list { border-radius: var(--radius-sm); border: 1px solid var(--border); }
+      /* Snippet table */
+      .snippet-bulk-bar {
+        display: flex; align-items: center; justify-content: space-between;
+        padding: 8px 14px; margin-bottom: 8px;
+        background: var(--accent-subtle); border: 1px solid var(--accent);
+        border-radius: var(--radius-sm); font-size: 12px; color: var(--text);
+      }
+      .snippet-bulk-actions { display: flex; gap: 8px; }
+      .snippet-bulk-actions .btn-secondary { padding: 5px 12px; font-size: 12px; }
+      .snippet-table { border-radius: var(--radius-sm); border: 1px solid var(--border); overflow: hidden; }
+      .snippet-table-head, .snippet-view {
+        display: grid;
+        grid-template-columns: 28px 1fr 40px 40px;
+        align-items: center;
+        gap: 10px;
+      }
+      .snippet-table.gist-linked .snippet-table-head,
+      .snippet-table.gist-linked .snippet-view {
+        grid-template-columns: 28px 1fr 52px 40px 40px;
+      }
+      .snippet-table-head {
+        padding: 8px 14px;
+        font-size: 10px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.05em;
+        color: var(--text-muted);
+        background: var(--surface); border-bottom: 1px solid var(--border);
+      }
+      .snippet-table-head .col-sync, .snippet-view .col-sync { display: none; justify-self: center; }
+      .snippet-table.gist-linked .col-sync { display: flex; }
+      .snippet-table-head .col-sync { text-align: center; }
+      .col-check { justify-self: center; }
+      .col-check input, .col-sync input {
+        width: 15px; height: 15px; accent-color: var(--accent); cursor: pointer; margin: 0;
+        outline: none;
+      }
+      .col-check input:focus-visible, .col-sync input:focus-visible {
+        outline: 1.5px solid var(--accent);
+        outline-offset: 1px;
+      }
       .snippet-empty {
         padding: 24px 20px;
         text-align: center;
@@ -549,11 +588,10 @@
       .snippet-row:last-child { border-bottom: none; }
       .snippet-row:hover { background: var(--surface-hover); }
       .snippet-row.editing { background: var(--surface-hover); border-left: 3px solid var(--accent); }
-      .snippet-view { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 10px 14px; }
-      .snippet-info { flex: 1; min-width: 0; }
+      .snippet-view { padding: 10px 14px; }
+      .col-name { min-width: 0; }
       .snippet-name { font-size: 13px; font-weight: 500; margin-bottom: 2px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
       .snippet-preview { font-size: 11px; color: var(--text-muted); font-family: ui-monospace, Menlo, monospace; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-      .snippet-actions { display: flex; gap: 6px; flex-shrink: 0; }
       .row-btn {
         background: none;
         border: none;
@@ -561,6 +599,7 @@
         padding: 6px;
         display: flex;
         align-items: center;
+        justify-self: center;
         color: var(--text-muted);
         transition: color 0.15s;
       }
@@ -757,6 +796,9 @@
                     <div id="settings-keyboard-layout-note" style="display:none;font-size:11px;color:var(--text-muted);margin-top:4px;">Detected from your browser — change this if your VM's guest OS uses a different layout.</div>
                   </div>
                 </div>
+                <p style="font-size:11px;color:var(--text-muted);margin:10px 0 0;">
+                  A mismatched layout (or an unexpected edge case) can send different characters than intended. Always glance at the console before pressing Enter or relying on a paste for anything sensitive or destructive.
+                </p>
               </div>
               <div class="subsection">
                 <div class="subsection-title">Compatibility</div>
@@ -809,7 +851,7 @@
                     <input type="password" id="gh-token" placeholder="ghp_..." autocomplete="off" />
                   </div>
                 </div>
-                <div id="gh-no-token-warning" style="display:none;font-size:11px;color:var(--text-muted);margin:-4px 0 10px;">No token — Import will only work for a <strong>public</strong> Gist (read-only, rate-limited). Add a token to enable Export and auto-sync.</div>
+                <div id="gh-no-token-warning" style="display:none;font-size:11px;color:var(--text-muted);margin:6px 0 10px;">No token — Import will only work for a <strong>public</strong> Gist (read-only, rate-limited). Add a token to enable Export and auto-sync.</div>
                 <div class="setting-row">
                   <div class="setting-label-cell">
                     <label class="setting-label" for="gh-gist-id">Gist ID (optional)</label>
@@ -826,11 +868,18 @@
                   </div>
                   <div class="setting-input"><input type="checkbox" id="gh-auto-sync" /></div>
                 </div>
-                <div id="gh-auto-sync-note" style="display:none;font-size:11px;color:var(--text-muted);margin:-4px 0 6px;">Export or import once above to link a Gist first.</div>
-                <div id="gh-sync-status" style="font-size:11px;color:var(--text-muted);margin:0 0 10px;">Last synced: never</div>
+                <div id="gh-auto-sync-note" style="display:none;font-size:11px;color:var(--text-muted);margin:6px 0 6px;">Export or import once above to link a Gist first.</div>
+                <div id="gh-sync-status" style="font-size:11px;color:var(--text-muted);margin:6px 0 10px;">Last synced: never</div>
+                <div id="gh-auto-select-sync-row" class="setting-row" style="display:none;">
+                  <div class="setting-label-cell">
+                    <label class="setting-label" for="gh-auto-select-sync">Sync new snippets by default</label>
+                    <span class="setting-info" title="Off by default: new snippets you create are never uploaded until you check &quot;Sync to Gist&quot; on them individually (Settings -> Snippets -> edit). Turn this on if you'd rather new snippets start opted in and uncheck the rare ones you want to keep local-only. Doesn't change any existing snippet's setting." aria-label="Help"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg></span>
+                  </div>
+                  <div class="setting-input"><input type="checkbox" id="gh-auto-select-sync" /></div>
+                </div>
                 <p style="font-size:11px;color:var(--text-muted);margin:2px 0 10px;">
                   <a href="https://github.com/settings/tokens/new?scopes=gist&description=PVE%20Snippets" target="_blank" rel="noopener noreferrer">Create a gist-only token on GitHub</a>
-                  &mdash; secret gists are unlisted, not private; anyone with the link can view them.
+                  &mdash; GitHub's secret gists are unlisted, not private (that's GitHub's own gist model, not this extension's doing); anyone with the link can view them.
                 </p>
                 <div class="backup-actions">
                   <button type="button" class="export-btn" id="gh-export-btn">
@@ -857,8 +906,24 @@
                   <span class="section-title">Your snippets</span>
                   <span class="snippets-count" id="snippetCount">0</span>
                 </div>
-                <div class="snippet-list" id="snippetList">
-                  <div class="snippet-empty">No snippets yet. Import a backup or add snippets from the popup.</div>
+                <div class="snippet-bulk-bar" id="snippetBulkBar" style="display:none;">
+                  <span id="snippetBulkCount">0 selected</span>
+                  <span class="snippet-bulk-actions">
+                    <button type="button" class="btn-secondary" id="snippetBulkSyncBtn" style="display:none;">Sync selected</button>
+                    <button type="button" class="btn-secondary" id="snippetBulkDeleteBtn">Delete selected</button>
+                  </span>
+                </div>
+                <div class="snippet-table" id="snippetTable">
+                  <div class="snippet-table-head">
+                    <span class="col-check"><input type="checkbox" id="snippetSelectAll" title="Select all" /></span>
+                    <span class="col-name">Name</span>
+                    <span class="col-sync">Sync</span>
+                    <span class="col-edit"></span>
+                    <span class="col-delete"></span>
+                  </div>
+                  <div class="snippet-list" id="snippetList">
+                    <div class="snippet-empty">No snippets yet. Import a backup or add snippets from the popup.</div>
+                  </div>
                 </div>
               </div>
             </section>

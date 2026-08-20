@@ -5,7 +5,23 @@
   const PASTE_DRAFT_KEY = 'pmx_paste_draft';
   const POPUP_DEFAULT_TAB_KEY = 'pmx_popup_default_tab';
   const UPDATE_NOTICE_KEY = 'pmx_update_notice';
+  const GITHUB_AUTO_SELECT_SYNC_KEY = 'pmx_github_auto_select_sync';
   const MAX_SNIPPETS = 200;
+
+  // Off by default (Settings -> Backup -> "Sync new snippets by default") -- gists are
+  // unlisted, not private, so a brand-new snippet only starts opted in to Gist sync if the
+  // user explicitly turned this preference on.
+  function getAutoSelectSync() {
+    return new Promise(function (resolve) {
+      if (typeof chrome !== 'undefined' && chrome.storage && chrome.storage.local) {
+        chrome.storage.local.get([GITHUB_AUTO_SELECT_SYNC_KEY], function (res) {
+          resolve(Boolean(res[GITHUB_AUTO_SELECT_SYNC_KEY]));
+        });
+        return;
+      }
+      resolve(false);
+    });
+  }
 
   const popupSendBtn = document.getElementById('popup-send-btn');
   const popupPasteText = document.getElementById('pmx-textarea');
@@ -188,18 +204,22 @@
     const text = String(payload.text || '').trim();
     if (!name) return Promise.resolve({ ok: false, reason: 'no_name' });
     if (!text) return Promise.resolve({ ok: false, reason: 'no_text' });
-    return getSnippets().then(function(snippets) {
+    return Promise.all([getSnippets(), getAutoSelectSync()]).then(function(vals) {
+      const snippets = vals[0];
+      const autoSync = vals[1];
       const now = Date.now();
       if (id) {
         const idx = snippets.findIndex(function(s) { return s.id === id; });
         if (idx >= 0) {
+          // Editing an existing snippet -- preserve its current syncToGist as-is, don't
+          // let the "new snippet" default override a choice already made for it.
           snippets[idx] = { ...snippets[idx], name: name, text: text, updatedAt: now };
         } else {
-          snippets.unshift({ id: id, name: name, text: text, updatedAt: now });
+          snippets.unshift({ id: id, name: name, text: text, syncToGist: autoSync, updatedAt: now });
         }
       } else {
         const newId = 's_' + now + '_' + Math.random().toString(16).slice(2);
-        snippets.unshift({ id: newId, name: name, text: text, updatedAt: now });
+        snippets.unshift({ id: newId, name: name, text: text, syncToGist: autoSync, updatedAt: now });
       }
       return setSnippets(snippets.slice(0, MAX_SNIPPETS)).then(function() { return { ok: true }; });
     });

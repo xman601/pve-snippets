@@ -112,7 +112,12 @@ if (typeof importScripts === 'function') {
       const token = res[GITHUB_TOKEN_KEY];
       const gistId = res[GITHUB_GIST_ID_KEY];
       if (!res[GITHUB_AUTO_SYNC_KEY] || !token || !gistId) return;
-      const snippets = Array.isArray(res[SNIPPETS_KEY]) ? res[SNIPPETS_KEY] : [];
+      // Only snippets explicitly opted in (the "Sync to Gist" checkbox in the Snippets
+      // panel) get uploaded -- gists are unlisted, not private. If nothing is currently
+      // opted in, skip the write entirely rather than silently wiping the Gist to empty.
+      const allSnippets = Array.isArray(res[SNIPPETS_KEY]) ? res[SNIPPETS_KEY] : [];
+      const snippets = allSnippets.filter(function (s) { return s && s.syncToGist === true; });
+      if (snippets.length === 0) return;
       const body = { files: { [GIST_FILENAME]: { content: JSON.stringify(snippets, null, 2) } } };
       return githubRequest(token, '/gists/' + gistId, 'PATCH', body)
         .then(function () { storage.set({ [GITHUB_LAST_SYNC_KEY]: { time: Date.now(), ok: true } }); })

@@ -128,18 +128,10 @@
     });
   }
 
-  // Best-effort guess at the layout of the machine running the browser — used only to
-  // pre-fill a first-run default, never to override an explicit user choice. Delegates to
-  // the shared locale table in keyboard-layouts.js so a new layout's guess only needs
-  // adding in one place.
-  function detectLayoutFromLanguage() {
-    return guessKeyboardLayoutFromLocale(navigator.language || (navigator.languages && navigator.languages[0]) || '');
-  }
-
   // More accurate than locale, but Chrome/Edge only: inspects which characters the
   // physical keys actually produce on the current OS keyboard layout. Only layouts with a
-  // single, distinctive key are checked here -- draft layouts we're less sure of (Italian,
-  // Portuguese, Dutch) are deliberately left to the locale guess rather than a shaky check.
+  // single, distinctive key are checked here -- Italian/Portuguese/Dutch are left to the
+  // locale guess rather than adding a shaky single-key heuristic for each.
   function detectLayoutFromKeyboardMap() {
     if (!navigator.keyboard || !navigator.keyboard.getLayoutMap) return Promise.resolve(null);
     return navigator.keyboard.getLayoutMap().then(function (map) {
@@ -358,6 +350,10 @@
       id: typeof item.id === 'string' && item.id ? item.id : 's_' + now + '_' + Math.random().toString(16).slice(2),
       name: name || 'Imported',
       text: text,
+      // Off by default -- a JSON file could come from anywhere, so importing one doesn't
+      // imply its snippets are OK to re-upload to a Gist. Preserved if the file already
+      // carried the flag (e.g. re-importing your own previously-exported backup).
+      syncToGist: item.syncToGist === true,
       updatedAt: typeof item.updatedAt === 'number' ? item.updatedAt : now
     };
   }
@@ -438,6 +434,7 @@
   const GITHUB_TOKEN_KEY = 'pmx_github_token';
   const GITHUB_GIST_ID_KEY = 'pmx_github_gist_id';
   const GITHUB_AUTO_SYNC_KEY = 'pmx_github_auto_sync';
+  const GITHUB_AUTO_SELECT_SYNC_KEY = 'pmx_github_auto_select_sync';
   const GITHUB_LAST_SYNC_KEY = 'pmx_github_last_sync';
   const GIST_FILENAME = 'pve-snippets.json';
   const GITHUB_API = 'https://api.github.com';
@@ -454,6 +451,8 @@
   const ghImportPromptYes = document.getElementById('gh-import-prompt-yes');
   const ghImportPromptNo = document.getElementById('gh-import-prompt-no');
   const ghNoTokenWarning = document.getElementById('gh-no-token-warning');
+  const ghAutoSelectSync = document.getElementById('gh-auto-select-sync');
+  const ghAutoSelectSyncRow = document.getElementById('gh-auto-select-sync-row');
 
   // Export/auto-sync write to the Gist and always need a token; import only reads, and
   // GitHub's API allows unauthenticated reads of public gists -- so a token is optional
@@ -463,6 +462,16 @@
     const hasToken = Boolean(ghTokenInput && (ghTokenInput.value || '').trim());
     if (ghExportBtn) ghExportBtn.disabled = !hasToken;
     if (ghNoTokenWarning) ghNoTokenWarning.style.display = hasToken ? 'none' : 'block';
+    // Same condition the Snippets panel uses to show its own per-snippet "Sync to Gist"
+    // checkbox -- this row only matters once that checkbox exists to have a default for.
+    if (ghAutoSelectSyncRow) ghAutoSelectSyncRow.style.display = hasToken ? 'flex' : 'none';
+  }
+
+  if (ghAutoSelectSync) {
+    storageGet(GITHUB_AUTO_SELECT_SYNC_KEY).then(function (val) { ghAutoSelectSync.checked = Boolean(val); });
+    ghAutoSelectSync.addEventListener('change', function () {
+      storageSet(GITHUB_AUTO_SELECT_SYNC_KEY, ghAutoSelectSync.checked);
+    });
   }
 
   if (ghTokenInput) {
@@ -471,6 +480,15 @@
       updateTokenDependentUI();
     });
     ghTokenInput.addEventListener('input', updateTokenDependentUI);
+    // Persist on blur, not just after a successful Export/Import -- the Snippets panel's
+    // "Sync to Gist" checkbox (a separate script) needs to see the token exists in storage
+    // to offer opting a snippet in *before* the first export, which is what actually
+    // creates the Gist. Without this, there's no way to opt anything in to make that first
+    // export succeed at all.
+    ghTokenInput.addEventListener('blur', function () {
+      const token = (ghTokenInput.value || '').trim();
+      if (token) storageSet(GITHUB_TOKEN_KEY, token);
+    });
   } else {
     updateTokenDependentUI();
   }
@@ -496,8 +514,14 @@
   function doGistExport(token, explicitGistId) {
     return Promise.all([getSnippets(), explicitGistId ? Promise.resolve(explicitGistId) : storageGet(GITHUB_GIST_ID_KEY)])
       .then(function (vals) {
-        const snippets = vals[0];
+        // Only snippets explicitly opted in (see the "Sync to Gist" checkbox in the
+        // Snippets panel) get uploaded -- gists are unlisted, not private. Guard against
+        // silently wiping an existing Gist to empty if nothing is currently opted in.
+        const snippets = vals[0].filter(function (s) { return s.syncToGist === true; });
         const gistId = vals[1];
+        if (snippets.length === 0) {
+          throw new Error('No snippets are marked "Sync to Gist" -- check the box on a snippet in the Snippets panel first.');
+        }
         const body = {
           description: 'PVE Snippets backup',
           public: false,
@@ -526,10 +550,15 @@
         try { list = JSON.parse(file.content); } catch (_) { throw new Error('Gist content is not valid JSON.'); }
         if (!Array.isArray(list)) throw new Error('Gist content is not a snippet list.');
         const normalized = list.map(normalizeSnippet).filter(Boolean);
+        // Only "link" this Gist as the device's export/auto-sync target when a token was
+        // used -- an anonymous pull from someone else's public template (e.g. a shared
+        // starter set) shouldn't silently become the destination a later Export writes to.
+        // For the same reason, only mark these snippets as sync-enabled in that linking
+        // case: they're already sitting in the Gist this device now syncs to, so keeping
+        // them opted in just reflects reality, whereas a template pulled from someone
+        // else's public Gist should stay local-only until the user opts it in themselves.
+        if (token) normalized.forEach(function (s) { s.syncToGist = true; });
         return mergeAndSaveSnippets(normalized).then(function (capped) {
-          // Only "link" this Gist as the device's export/auto-sync target when a token was
-          // used -- an anonymous pull from someone else's public template (e.g. a shared
-          // starter set) shouldn't silently become the destination a later Export writes to.
           if (token) {
             storageSet(GITHUB_TOKEN_KEY, token);
             storageSet(GITHUB_GIST_ID_KEY, gistId);
@@ -606,10 +635,11 @@
           : typeof browser !== 'undefined' && browser.storage && browser.storage.local
             ? browser.storage.local
             : null;
-        if (api) api.remove([GITHUB_TOKEN_KEY, GITHUB_GIST_ID_KEY, GITHUB_AUTO_SYNC_KEY, GITHUB_LAST_SYNC_KEY]);
+        if (api) api.remove([GITHUB_TOKEN_KEY, GITHUB_GIST_ID_KEY, GITHUB_AUTO_SYNC_KEY, GITHUB_AUTO_SELECT_SYNC_KEY, GITHUB_LAST_SYNC_KEY]);
       } catch (_) {}
       if (ghTokenInput) ghTokenInput.value = '';
       if (ghGistIdInput) ghGistIdInput.value = '';
+      if (ghAutoSelectSync) ghAutoSelectSync.checked = false;
       setStatus('GitHub token forgotten.');
       updateAutoSyncAvailability();
       updateTokenDependentUI();
