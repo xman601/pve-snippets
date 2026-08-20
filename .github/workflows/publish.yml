@@ -1,0 +1,48 @@
+name: Publish to browser stores
+
+# Triggered by pushing a tag like v1.5.0 -- publishes the same zip that
+# `python3 scripts/build-store-zip.py` produces locally to both the Chrome Web
+# Store and Firefox Add-ons (AMO). Both listings must already exist and have
+# been manually created/approved once before this can update them -- see
+# https://github.com/PlasmoHQ/bms/blob/main/tokens.md for how to obtain the
+# BPP_KEYS secret this workflow depends on.
+on:
+  push:
+    tags:
+      - "v*"
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.x"
+
+      # Catches the easy-to-forget mistake of tagging a release without
+      # bumping extension/manifest.json's version first -- both stores key
+      # off that version field, so a mismatch here would otherwise only
+      # surface as a confusing rejection/no-op at the actual store.
+      - name: Verify tag matches manifest version
+        run: |
+          TAG_VERSION="${GITHUB_REF_NAME#v}"
+          MANIFEST_VERSION=$(python3 -c "import json; print(json.load(open('extension/manifest.json'))['version'])")
+          if [ "$TAG_VERSION" != "$MANIFEST_VERSION" ]; then
+            echo "Tag $GITHUB_REF_NAME (version $TAG_VERSION) does not match extension/manifest.json version $MANIFEST_VERSION"
+            exit 1
+          fi
+
+      - name: Build extension zip
+        run: python3 scripts/build-store-zip.py
+
+      - name: Publish to Chrome Web Store & Firefox Add-ons
+        uses: PlasmoHQ/bpp@v3
+        with:
+          keys: ${{ secrets.BPP_KEYS }}
+          artifact: pve-snippets.zip
+          version-file: extension/manifest.json
+          verbose: true
