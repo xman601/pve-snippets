@@ -559,6 +559,7 @@
         display: flex; align-items: center; justify-content: center;
         min-height: 36px; padding: 8px 0; width: 44px; flex-shrink: 0;
         border-left: 1px solid ${THEME.border}; color: ${THEME.textMuted}; cursor: pointer;
+        text-decoration: none;
         transition: color 0.15s, background 0.15s;
       }
       .pmx-hdr-close:hover { background: ${THEME.bgPanel}; color: ${THEME.textMuted}; }
@@ -846,6 +847,18 @@
     titleEl.className = 'pmx-title';
     titleEl.textContent = 'PVE Snippets';
 
+    const hdrSettings = document.createElement('a');
+    hdrSettings.className = 'pmx-hdr-close';
+    hdrSettings.title = 'Settings';
+    hdrSettings.innerHTML = GEAR;
+    try {
+      if (typeof chrome !== 'undefined' && chrome.runtime && chrome.runtime.getURL) {
+        hdrSettings.href = chrome.runtime.getURL('settings.html');
+      }
+    } catch (_) {}
+    hdrSettings.target = '_blank';
+    hdrSettings.rel = 'noopener noreferrer';
+
     const hdrClose = document.createElement('span');
     hdrClose.className = 'pmx-hdr-close';
     hdrClose.title = 'Collapse';
@@ -853,6 +866,7 @@
 
     const titleBarActions = document.createElement('div');
     titleBarActions.className = 'pmx-title-bar-actions';
+    titleBarActions.appendChild(hdrSettings);
     titleBarActions.appendChild(hdrClose);
 
     titleBar.appendChild(titleEl);
