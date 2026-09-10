@@ -191,8 +191,12 @@ const IT_LAYOUT = buildLayout({
   ';': { code: 'Comma', shift: true }, ':': { code: 'Period', shift: true },
   '<': { code: 'IntlBackslash', shift: false }, '>': { code: 'IntlBackslash', shift: true },
   // No longer produced by these positions on real Italian hardware (confirmed) -- null
-  // rather than leave the stale, now-wrong US-inherited keystroke.
-  '[': null, '{': null, ']': null, '}': null, '`': null, '~': null, '=': null
+  // rather than leave the stale, now-wrong US-inherited keystroke. ' and " are included
+  // here because à/° now occupy their physical key (Quote) -- without nulling them, the
+  // inherited US entries collided with à/°, so requesting either ' or " would have silently
+  // sent the à/° keystroke instead.
+  '[': null, '{': null, ']': null, '}': null, '`': null, '~': null, '=': null,
+  "'": null, '"': null
 });
 
 // Portuguese (Portugal) ISO QWERTY -- corrected against the actual XKB symbol definitions
