@@ -1,14 +1,15 @@
 # PVE Snippets
 
-A Chrome, Edge, and Firefox browser extension that adds clipboard paste support to the PVE (Proxmox VE) noVNC console.
+A Chrome, Edge, and Firefox browser extension that adds clipboard paste support to PVE (Proxmox VE) consoles — both noVNC (VM consoles) and xterm.js (LXC containers, serial consoles, and the node Shell).
 
 **Install:** [Chrome Web Store](https://chromewebstore.google.com/detail/jampbpobgkkfoeiogobjlbhldkjgcfkg) · [Firefox Add-ons](https://addons.mozilla.org/en-US/firefox/addon/pve-snippets/)
 
 ## Features
 
-- **Floating Paste pill & panel** — small pill on PVE noVNC consoles that expands into a full panel with **Paste** and **Snippets** tabs
+- **Floating Paste pill & panel** — small pill on PVE consoles (noVNC and xterm.js) that expands into a full panel with **Paste** and **Snippets** tabs
 - **Keyboard Shortcut** — native paste (`Ctrl+V` on Windows/Linux, `⌘V` on macOS) pastes into the VM when the console is focused (configurable in Settings)
-- **Popup Paste** — open the extension popup, type or paste text, and click **Send** to paste into the active tab (noVNC canvas or focused text field)
+- **Popup Paste** — open the extension popup, type or paste text, and click **Send** to paste into the active tab (noVNC canvas, xterm.js terminal, or focused text field)
+- **LXC / Shell console support** — on xterm.js consoles (LXC containers, serial consoles, node Shell) text is handed to the terminal in one shot, the same way a real paste is, so it's instant and needs no keyboard-layout or timing settings
 - **Auto-hit Enter after paste** — optional toggle in Settings to send Enter after each paste
 - **Timing & compatibility controls** — adjust per‑character delay, first‑character delay (up to 1000 ms), extra delay after newlines, and an optional compatibility mode for very long pastes
 - **Keyboard layout support** — choose from US, UK, German (QWERTZ), French (AZERTY), Spanish, Italian, Portuguese, Dutch, Canadian English, Australian/NZ, or Irish in Settings so symbols and accented characters type correctly on non-US VMs; the extension makes a best-effort guess at install time (from your browser) but you should confirm it matches your VM's guest OS layout. Spanish/Portuguese/Dutch also support dead-key composed accents (e.g. Spanish á = dead-acute + a), the same way a real keyboard does. Letters, digits, and the core accented characters for all layouts are verified against real hardware; the digit-row/AltGr symbol layer for Spanish, Italian, Portuguese, and Dutch is not yet mapped and is safely skipped rather than guessed (see `dev/README.md`)
@@ -36,7 +37,7 @@ For Firefox (development): open `about:debugging`, click **This Firefox**, click
 
 ## Usage
 
-1. Open your PVE web UI and launch a VM console (noVNC)
+1. Open your PVE web UI and launch a console — a VM (noVNC), or an LXC container / node Shell (xterm.js)
 2. Copy text on your host machine (`Ctrl+C`)
 3. Either:
    - Click the **Paste** pill in the corner of the console, or
@@ -63,7 +64,8 @@ This extension simulates keystrokes into whatever's focused on the page — incl
 
 ## Notes
 
-- The extension only activates on PVE (Proxmox VE) noVNC console URLs; it won’t inject into arbitrary sites that happen to use `<canvas>`
+- The extension only activates on PVE (Proxmox VE) console URLs (`console=kvm|lxc|shell…` with `novnc=1` or `xtermjs=1`); it won’t inject into arbitrary sites that happen to use `<canvas>` or xterm.js
+- Timing, compatibility mode, and keyboard layout only affect noVNC consoles, where text has to be typed keystroke by keystroke. xterm.js consoles receive the whole text at once as a paste, so those settings don't apply there (Auto-Enter still does)
 - Characters are sent with a configurable delay between each to avoid dropped input
 - Newlines are translated to Enter keypresses; you can also add an extra delay after each newline
 - Very long pastes (hundreds of characters) will take a moment — you’ll see a timer and progress bar for longer runs, and you can cancel them
@@ -84,7 +86,7 @@ should match the guest OS too, independent of this extension.
 
 **Characters getting dropped:** The VM might be processing input slower than the typing delay. If this happens, paste smaller chunks at a time.
 
-**Button not appearing (PVE):** The floating panel and Ctrl+V paste only appear on PVE noVNC console pages (URL typically contains `/novnc` or similar). Refresh after installing. For other noVNC pages, use the extension popup to paste into the page.
+**Button not appearing (PVE):** The floating panel and Ctrl+V paste only appear on PVE console pages (URL contains `console=…` plus `novnc=1` or `xtermjs=1`). Refresh after installing. For other noVNC or xterm.js pages, use the extension popup to paste into the page.
 
 ## Project structure
 

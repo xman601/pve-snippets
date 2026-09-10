@@ -34,35 +34,48 @@
     accent: '#f60',
   };
 
-  // Only activate on pages that look like a PVE (Proxmox VE) noVNC console.
-  // Requires PVE-specific URL signals so we don't run on other sites that use noVNC.
+  // Only activate on pages that look like a PVE (Proxmox VE) console -- either noVNC (VM
+  // consoles) or xterm.js (LXC containers, serial consoles, and the node Shell).
+  // Requires PVE-specific URL signals so we don't run on other sites that use noVNC/xterm.
   function isProxmoxConsole() {
     const path = window.location.pathname;
     const search = window.location.search;
 
     const hasNovncPath = path.includes('novnc') || path.includes('vncviewer');
-    const hasNovncQuery = search.includes('novnc=1');
-    const hasConsoleKvmLxc = search.includes('console=kvm') || search.includes('console=lxc');
+    const hasConsoleQuery = search.includes('novnc=1') || search.includes('xtermjs=1');
+    // kvm/lxc are guest consoles; shell/upgrade/cmd are node shells
+    const hasConsoleType = /[?&]console=(kvm|lxc|shell|upgrade|cmd)(&|$)/.test(search);
     const hasVmid = search.includes('vmid=');
     const hasNode = search.includes('node=');
     const hasPvePath = path.includes('pve');
 
-    // PVE console URLs typically have: console=kvm|lxc, and/or vmid=, node=, and/or novnc path/query
+    // PVE console URLs typically have: console=<type>, and/or vmid=, node=, and/or novnc/xtermjs path/query
     return (
-      (hasConsoleKvmLxc && (hasVmid || hasNode || hasNovncPath || hasNovncQuery)) ||
-      (hasVmid && (hasNovncPath || hasNovncQuery || hasNode)) ||
-      (hasNode && (hasNovncPath || hasNovncQuery)) ||
+      (hasConsoleType && (hasVmid || hasNode || hasNovncPath || hasConsoleQuery)) ||
+      (hasVmid && (hasNovncPath || hasConsoleQuery || hasNode)) ||
+      (hasNode && (hasNovncPath || hasConsoleQuery)) ||
       (hasPvePath && hasNovncPath)
     );
   }
 
-  // Wait for the page to load the canvas before injecting
-  function waitForCanvas(callback, attempts = 0) {
-    const canvas = document.querySelector('canvas');
-    if (canvas) {
-      callback(canvas);
+  // The element we type into. noVNC renders into a <canvas> and listens for keystrokes on
+  // it; xterm.js listens on a hidden textarea instead. xterm's canvas/WebGL renderers also
+  // add <canvas> elements to the page, so the textarea has to be checked first.
+  function findConsoleTarget() {
+    return document.querySelector('.xterm-helper-textarea') || document.querySelector('canvas');
+  }
+
+  function isXtermTarget(el) {
+    return Boolean(el && el.classList && el.classList.contains('xterm-helper-textarea'));
+  }
+
+  // Wait for the page to create its console element before injecting
+  function waitForTarget(callback, attempts = 0) {
+    const target = findConsoleTarget();
+    if (target) {
+      callback(target);
     } else if (attempts < 30) {
-      setTimeout(() => waitForCanvas(callback, attempts + 1), 500);
+      setTimeout(() => waitForTarget(callback, attempts + 1), 500);
     }
   }
 
@@ -251,7 +264,45 @@
     setTimeout(sendNext, firstDelay);
   }
 
+  // xterm.js doesn't need keystroke simulation: like any textarea it handles `paste`, and
+  // a synthetic paste hands it the whole text at once exactly as a real Ctrl+Shift+V would.
+  // xterm normalizes newlines to Enter, honors bracketed-paste mode, and forwards the raw
+  // text to the PTY, so per-character delays and keyboard-layout mapping don't apply.
+  // Returns whether xterm consumed the event. Its handler calls stopPropagation() (not
+  // preventDefault), so the event still reaching the document means nothing took it.
+  function sendTextToXterm(textarea, text) {
+    textarea.focus();
+    let ev;
+    try {
+      const dt = new DataTransfer();
+      dt.setData('text/plain', text);
+      ev = new ClipboardEvent('paste', { bubbles: true, cancelable: true, clipboardData: dt });
+    } catch (_) {
+      return false;
+    }
+    let reachedDocument = false;
+    const probe = function () { reachedDocument = true; };
+    document.addEventListener('paste', probe);
+    textarea.dispatchEvent(ev);
+    document.removeEventListener('paste', probe);
+    return !reachedDocument;
+  }
+
   function sendTextWithStoredDelay(canvas, text) {
+    if (isXtermTarget(canvas)) {
+      // Never fall back to keystrokes here: sendKeystroke reports each character's code
+      // point as keyCode, which xterm interprets as function/arrow keys and turns into
+      // escape sequences (verified: 'w' became F8, "'" became Right Arrow).
+      if (!sendTextToXterm(canvas, text)) {
+        showToast('⚠ Terminal did not accept the paste');
+        return;
+      }
+      syncGet(AUTO_ENTER_KEY).then(function (autoEnter) {
+        if (autoEnter) setTimeout(function () { sendEnter(canvas); }, 50);
+      });
+      showToast('✓ Pasted ' + text.length + ' characters');
+      return;
+    }
     Promise.all([getKeystrokeDelayMs(), getFirstCharDelayMs(), getEnterDelayMs(), getCompatMode(), getKeyboardLayout()]).then(function (vals) {
       const delayMs = vals[0];
       const firstDelayMs = vals[1];
@@ -1401,7 +1452,7 @@
     return false;
   }
 
-  // Handle messages from popup: paste text into the page (canvas for noVNC, or focused input/textarea).
+  // Handle messages from popup: paste text into the page (noVNC canvas / xterm.js textarea, or focused input/textarea).
   if (typeof chrome !== 'undefined' && chrome.runtime && chrome.runtime.onMessage) {
     chrome.runtime.onMessage.addListener(function (msg, _sender, sendResponse) {
       if (msg.action !== 'paste' && msg.action !== 'sendText') return;
@@ -1412,7 +1463,7 @@
       }
 
       function tryHandle() {
-        const canvas = document.querySelector('canvas');
+        const canvas = findConsoleTarget();
         if (canvas && msg.action === 'sendText') {
           sendTextWithStoredDelay(canvas, text);
           sendResponse({ ok: true });
@@ -1469,7 +1520,7 @@
     if (!isProxmoxConsole()) return;
     checkForUpdateNotice();
     if (document.getElementById('pmx-wrap')) return; // already injected (e.g. by background script)
-    waitForCanvas((canvas) => {
+    waitForTarget((canvas) => {
       injectButton(canvas);
       injectHotkey(canvas);
       console.log('[PVE Snippets] Ready. Use ' + (/Mac|iPod|iPhone|iPad/.test(navigator.platform) ? '\u2318V' : 'Ctrl+V') + ' or the paste button.');
