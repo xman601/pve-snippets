@@ -105,6 +105,8 @@ for (const [store, check] of [['Chrome Web Store', checkChrome], ['Firefox Add-o
   } catch (err) {
     failed = true;
     console.log('  FAILED: ' + err.message);
+    // Also surface it on the run's summary page (GitHub Actions annotation; %0A = newline).
+    if (process.env.GITHUB_ACTIONS) console.log(`::error title=${store}::${err.message.replace(/\n/g, '%0A')}`);
   }
 }
 process.exit(failed ? 1 : 0);
