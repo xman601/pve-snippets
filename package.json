@@ -7,6 +7,8 @@
     "lint": "web-ext lint --source-dir extension"
   },
   "devDependencies": {
+    "chrome-webstore-upload": "^6.0.0",
+    "chrome-webstore-upload-cli": "^4.0.1",
     "jsdom": "^30.1.1",
     "web-ext": "^10.7.0"
   }

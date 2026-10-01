@@ -1,52 +1,105 @@
 name: Publish to browser stores
 
-# Triggered by pushing a tag like v1.5.0 -- publishes the same zip that
-# `python3 scripts/build-store-zip.py` produces locally to both the Chrome Web
-# Store and Firefox Add-ons (AMO). Both listings must already exist and have
-# been manually created/approved once before this can update them -- see
-# https://github.com/PlasmoHQ/bms/blob/main/tokens.md for how to obtain the
-# BPP_KEYS secret this workflow depends on.
+# Triggered by pushing a tag like v1.6.0. Runs the test workflow, checks the tag
+# matches extension/manifest.json's version, then publishes to the Chrome Web
+# Store and Firefox Add-ons (AMO) as two independent jobs, so one store failing
+# doesn't block the other and the failing job names the store.
+#
+# Both listings already exist; these jobs only upload new versions. Required
+# repository secrets (Settings -> Secrets and variables -> Actions):
+#
+#   CHROME_CLIENT_ID, CHROME_CLIENT_SECRET, CHROME_REFRESH_TOKEN
+#       Google OAuth client for the Chrome Web Store API -- see
+#       https://github.com/fregante/chrome-webstore-upload-keys
+#   CHROME_PUBLISHER_ID
+#       Chrome Web Store developer account ID (in the Developer Dashboard URL)
+#   AMO_JWT_ISSUER, AMO_JWT_SECRET
+#       https://addons.mozilla.org/en-US/developers/addon/api/key/
 on:
   push:
     tags:
       - "v*"
 
+env:
+  CHROME_EXTENSION_ID: jampbpobgkkfoeiogobjlbhldkjgcfkg
+
 jobs:
   test:
     uses: ./.github/workflows/test.yml
 
-  publish:
-    needs: test
+  # Catches the easy-to-forget mistake of tagging a release without bumping
+  # extension/manifest.json's version first -- both stores key off that version
+  # field, so a mismatch would otherwise only surface as a confusing rejection.
+  verify-version:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
         uses: actions/checkout@v7
+
+      - name: Verify tag matches manifest version
+        run: |
+          TAG_VERSION="${GITHUB_REF_NAME#v}"
+          MANIFEST_VERSION=$(python3 -c "import json; print(json.load(open('extension/manifest.json'))['version'])")
+          if [ "$TAG_VERSION" != "$MANIFEST_VERSION" ]; then
+            echo "::error::Tag $GITHUB_REF_NAME (version $TAG_VERSION) does not match extension/manifest.json version $MANIFEST_VERSION"
+            exit 1
+          fi
+
+  chrome:
+    needs: [test, verify-version]
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+
+      - name: Set up Node
+        uses: actions/setup-node@v7
+        with:
+          node-version: lts/*
+          cache: npm
+
+      - name: Install dev dependencies
+        run: npm ci
 
       - name: Set up Python
         uses: actions/setup-python@v7
         with:
           python-version: "3.x"
 
-      # Catches the easy-to-forget mistake of tagging a release without
-      # bumping extension/manifest.json's version first -- both stores key
-      # off that version field, so a mismatch here would otherwise only
-      # surface as a confusing rejection/no-op at the actual store.
-      - name: Verify tag matches manifest version
-        run: |
-          TAG_VERSION="${GITHUB_REF_NAME#v}"
-          MANIFEST_VERSION=$(python3 -c "import json; print(json.load(open('extension/manifest.json'))['version'])")
-          if [ "$TAG_VERSION" != "$MANIFEST_VERSION" ]; then
-            echo "Tag $GITHUB_REF_NAME (version $TAG_VERSION) does not match extension/manifest.json version $MANIFEST_VERSION"
-            exit 1
-          fi
-
       - name: Build extension zip
         run: python3 scripts/build-store-zip.py
 
-      - name: Publish to Chrome Web Store & Firefox Add-ons
-        uses: PlasmoHQ/bpp@v3
+      # Uploads and submits for review (Chrome Web Store API v2).
+      - name: Upload and publish to Chrome Web Store
+        run: npx chrome-webstore-upload --source pve-snippets.zip --extension-id "$CHROME_EXTENSION_ID"
+        env:
+          CLIENT_ID: ${{ secrets.CHROME_CLIENT_ID }}
+          CLIENT_SECRET: ${{ secrets.CHROME_CLIENT_SECRET }}
+          REFRESH_TOKEN: ${{ secrets.CHROME_REFRESH_TOKEN }}
+          PUBLISHER_ID: ${{ secrets.CHROME_PUBLISHER_ID }}
+
+  firefox:
+    needs: [test, verify-version]
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+
+      - name: Set up Node
+        uses: actions/setup-node@v7
         with:
-          keys: ${{ secrets.BPP_KEYS }}
-          artifact: pve-snippets.zip
-          version-file: extension/manifest.json
-          verbose: true
+          node-version: lts/*
+          cache: npm
+
+      - name: Install dev dependencies
+        run: npm ci
+
+      # Submits the new version to the listed channel for AMO review. The add-on
+      # is identified by browser_specific_settings.gecko.id in the manifest.
+      # --approval-timeout 0 returns once the upload is accepted instead of
+      # waiting (possibly days) for a reviewer.
+      - name: Submit to Firefox Add-ons
+        run: npx web-ext sign --source-dir extension --channel listed --approval-timeout 0
+        env:
+          WEB_EXT_API_KEY: ${{ secrets.AMO_JWT_ISSUER }}
+          WEB_EXT_API_SECRET: ${{ secrets.AMO_JWT_SECRET }}
