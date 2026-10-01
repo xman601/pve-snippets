@@ -1,0 +1,42 @@
+name: Test
+
+# Runs on every push to main/dev and on every PR. publish.yml also calls this
+# workflow and won't publish a tagged release unless it passes.
+on:
+  push:
+    branches: [main, dev]
+  pull_request:
+  workflow_call:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: lts/*
+          cache: npm
+
+      - name: Install dev dependencies
+        run: npm ci
+
+      - name: Unit and content-script tests
+        run: npm test
+
+      # Mozilla's add-on linter -- the same checks AMO runs on upload. Fails on
+      # errors only; its existing warnings (innerHTML, the Chrome-only
+      # service_worker key) don't block.
+      - name: Lint for Firefox Add-ons
+        run: npm run lint
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.x"
+
+      - name: Build store zip
+        run: python3 scripts/build-store-zip.py

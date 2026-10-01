@@ -95,12 +95,14 @@ extension/       # Load unpacked from here (Chrome/Edge/Firefox); same folder fo
   manifest.json, content.js, keyboard-layouts.js, popup.html, popup.js, icons/
 scripts/         # Build scripts
   build-icons.py, build-store-zip.py, requirements-icons.txt
-dev/             # Mock noVNC console for testing without a real Proxmox server
+tests/           # Node tests (layouts, manifest, content script in jsdom); run in CI
 assets/          # Source assets (e.g. icon.svg)
 docs/            # Additional documentation
 ```
 
 **Development:** The same `extension/` folder works for Chrome, Edge, and Firefox. After changing `assets/icon.svg`, run `python scripts/build-icons.py` (install deps: `pip install -r scripts/requirements-icons.txt`). To build the store zip: `python scripts/build-store-zip.py`.
+
+**Testing:** `npm ci`, then `npm test` (unit + content-script tests) and `npm run lint` (Mozilla's add-on linter). GitHub Actions runs both on every push to `main`/`dev` and on PRs, and a `v*` tag won't publish to the stores unless they pass.
 
 ## License
 
