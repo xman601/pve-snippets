@@ -1,7 +1,7 @@
-PVE Snippets adds clipboard paste support to Proxmox VE (PVE) noVNC consoles and other pages. Paste text into your VMs or any focused text field without retyping.
+PVE Snippets adds clipboard paste support to Proxmox VE (PVE) consoles — noVNC for VMs, and xterm.js for LXC containers, serial consoles, and the node Shell — plus any other page. Paste text into your VMs, containers, or any focused text field without retyping.
 
 Features:
-• Floating paste button — Always visible in the bottom-right on noVNC console pages. One click to paste from clipboard.
+• Floating paste button — Always visible in the bottom-right on PVE console pages (noVNC and xterm.js). One click to paste from clipboard.
 • Keyboard shortcut — Use Ctrl+V (Windows/Linux) or ⌘V (macOS) while the console is focused to paste.
 • Paste from popup — Open the extension popup, type or paste text, then click "Send" to type it into the active tab. Works with noVNC and normal text fields.
 • Saved snippets — Save frequently used text and send it with one click. Manage up to 200 snippets in a searchable, sortable table — select multiple at once for bulk sync or delete.
@@ -13,4 +13,4 @@ Features:
 
 Privacy: All data stays on your device by default. Clipboard is read only when you paste. Snippets are stored locally and never synced unless you explicitly opt in to GitHub Gist backup, snippet by snippet. No analytics and no data sent to any server the developer controls.
 
-Ideal for Proxmox VE users who use noVNC consoles and want fast, reliable paste and snippet support — including on non-US keyboard layouts.
+Ideal for Proxmox VE users who live in the noVNC and LXC/Shell consoles and want fast, reliable paste and snippet support — including on non-US keyboard layouts.

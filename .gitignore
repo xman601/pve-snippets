@@ -3,3 +3,4 @@ extension.crx
 extension.pem
 .DS_Store
 docs/QA.md
+node_modules/
